@@ -37,4 +37,4 @@ class WebDriverPool:
             driver.quit()
 
 # Create a singleton instance of WebDriverPool
-webdriver_pool = WebDriverPool(size=1)
+webdriver_pool = WebDriverPool(size=10)
