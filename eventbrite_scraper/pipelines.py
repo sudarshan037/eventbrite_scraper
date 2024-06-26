@@ -5,11 +5,11 @@
 
 
 # useful for handling different item types with a single interface
-import pandas as pd
 from itemadapter import ItemAdapter
+import pandas as pd
+from datetime import datetime
 
-
-class EventScraperPipeline:
+class EventbriteScraperPipeline:
     def process_item(self, item, spider):
         return item
 
@@ -19,7 +19,8 @@ class ExcelExportPipeline:
 
     def close_spider(self, spider):
         df = pd.DataFrame(self.items)
-        df.to_excel('events.xlsx', index=False)
+        timestamp = datetime.now()
+        df.to_excel(f"data/outputs/events_{str(timestamp)}.xlsx", index=False)
         print("Excel file saved.")
 
     def process_item(self, item, spider):

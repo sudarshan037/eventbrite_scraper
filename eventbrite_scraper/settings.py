@@ -1,4 +1,4 @@
-# Scrapy settings for event_scraper project
+# Scrapy settings for eventbrite_scraper project
 #
 # For simplicity, this file contains only settings considered important or
 # commonly used. You can find more settings consulting the documentation:
@@ -7,14 +7,19 @@
 #     https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 #     https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
-BOT_NAME = "event_scraper"
+BOT_NAME = "eventbrite_scraper"
 
-SPIDER_MODULES = ["event_scraper.spiders"]
-NEWSPIDER_MODULE = "event_scraper.spiders"
+SPIDER_MODULES = ["eventbrite_scraper.spiders"]
+NEWSPIDER_MODULE = "eventbrite_scraper.spiders"
 
+LOG_LEVEL = "DEBUG"
+
+FEEDS = {
+    "data/%(name)s/%(name)s_%(time)s.json": {"format": "json"}
+}
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
-#USER_AGENT = "event_scraper (+http://www.yourdomain.com)"
+#USER_AGENT = "eventbrite_scraper (+http://www.yourdomain.com)"
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = True
@@ -45,13 +50,13 @@ ROBOTSTXT_OBEY = True
 # Enable or disable spider middlewares
 # See https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 #SPIDER_MIDDLEWARES = {
-#    "event_scraper.middlewares.EventScraperSpiderMiddleware": 543,
+#    "eventbrite_scraper.middlewares.EventbriteScraperSpiderMiddleware": 543,
 #}
 
 # Enable or disable downloader middlewares
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 #DOWNLOADER_MIDDLEWARES = {
-#    "event_scraper.middlewares.EventScraperDownloaderMiddleware": 543,
+#    "eventbrite_scraper.middlewares.EventbriteScraperDownloaderMiddleware": 543,
 #}
 
 # Enable or disable extensions
@@ -62,9 +67,10 @@ ROBOTSTXT_OBEY = True
 
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
-#ITEM_PIPELINES = {
-#    "event_scraper.pipelines.EventScraperPipeline": 300,
-#}
+ITEM_PIPELINES = {
+    "eventbrite_scraper.pipelines.ExcelExportPipeline": 300,
+    # "eventbrite_scraper.pipelines.EventbriteScraperPipeline": 300,
+}
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See https://docs.scrapy.org/en/latest/topics/autothrottle.html
@@ -91,48 +97,3 @@ ROBOTSTXT_OBEY = True
 REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 FEED_EXPORT_ENCODING = "utf-8"
-ITEM_PIPELINES = {
-    'event_scraper.pipelines.ExcelExportPipeline': 300,
-}
-DOWNLOADER_MIDDLEWARES = {
-    'event_scraper.middlewares.SeleniumMiddleware': 543,
-}
-
-
-ROBOTSTXT_OBEY = False
-
-CONCURRENT_REQUESTS = 32  # Adjust as needed
-CONCURRENT_REQUESTS_PER_DOMAIN = 16  # Adjust as needed
-
-REACTOR_THREADPOOL_MAXSIZE = 20  # Adjust as needed
-
-
-import logging
-
-LOG_LEVEL = 'INFO'
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'loggers': {
-        'scrapy.utils.log': {
-            'level': 'WARNING',
-        },
-        'selenium.webdriver.common.service': {
-            'level': 'WARNING',
-        },
-        'selenium.webdriver.common.driver_finder': {
-            'level': 'WARNING',
-        },
-        'WDM': {
-            'level': 'WARNING',
-        },
-        'asyncio': {
-            'level': 'WARNING',
-        },
-    },
-}
-
-EXTENSIONS = {
-    'scrapy.extensions.logstats.LogStats': 100,
-}

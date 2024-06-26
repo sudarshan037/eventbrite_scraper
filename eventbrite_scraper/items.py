@@ -6,11 +6,10 @@
 import scrapy
 
 
-class EventScraperItem(scrapy.Item):
+class EventbriteScraperItem(scrapy.Item):
     # define the fields for your item here like:
     # name = scrapy.Field()
     pass
-
 
 class EventItem(scrapy.Item):
     event_link = scrapy.Field()
@@ -20,4 +19,3 @@ class EventItem(scrapy.Item):
     location = scrapy.Field()
     organiser_name = scrapy.Field()
     followers = scrapy.Field()
-
