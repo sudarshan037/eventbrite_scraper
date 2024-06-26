@@ -2,17 +2,20 @@ import scrapy
 import pandas as pd
 from eventbrite_scraper.items import EventItem
 from eventbrite_scraper.utils import bcolors
+from scrapy_selenium import SeleniumRequest
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
 
 class EventsSpider(scrapy.Spider):
     name = "events"
     url_counter = 0
-    
+
     def start_requests(self):
         df = pd.read_excel("data/inputs/inputs.xlsx")
-        df = df.sample(30)
+        df = df.sample(3)
         for url in df["Event_link"].to_list():
-            yield scrapy.Request(url)
-        
+            yield SeleniumRequest(url=url, callback=self.parse, wait_time=10, wait_until=EC.presence_of_element_located((By.XPATH, "//span[contains(@class, 'organizer-stats__highlight')]")))
+            # yield scrapy.Request(url)
 
     def parse(self, response):
         item = EventItem()
