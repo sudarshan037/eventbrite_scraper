@@ -105,3 +105,30 @@ CONCURRENT_REQUESTS = 32  # Adjust as needed
 CONCURRENT_REQUESTS_PER_DOMAIN = 16  # Adjust as needed
 
 REACTOR_THREADPOOL_MAXSIZE = 20  # Adjust as needed
+
+
+import logging
+
+LOG_LEVEL = 'WARNING'
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'loggers': {
+        'scrapy.utils.log': {
+            'level': 'WARNING',
+        },
+        'selenium.webdriver.common.service': {
+            'level': 'WARNING',
+        },
+        'selenium.webdriver.common.driver_finder': {
+            'level': 'WARNING',
+        },
+        'WDM': {
+            'level': 'WARNING',
+        },
+        'asyncio': {
+            'level': 'WARNING',
+        },
+    },
+}

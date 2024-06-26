@@ -3,17 +3,28 @@ import pandas as pd
 from scrapy.selector import Selector
 from event_scraper.items import EventItem  # Assuming you'll define EventItem in items.py
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ESCAPE = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 class EventSpider(scrapy.Spider):
     name = 'event_spider'
     allowed_domains = ['eventbrite.com']  # Add other domains if scraping other websites
     df = pd.read_excel("inputs.xlsx")
-    # df = df.head(3)
+    df = df.head(3)
     # df = df[df[["event_name", "followers", "date", "price", "location", "organiser_name"]].isna().all(axis=1)]
     # start_urls = df["event_link"].to_list()
-    # start_urls = [
-    #     'https://www.eventbrite.com/e/the-rolling-tones-at-hudak-house-tickets-926567788197`',
-    #     'https://www.eventbrite.com/e/club-privata-vip-suite-reservations-tickets-321505992077'
-    # ]
+    start_urls = [
+        'https://www.eventbrite.com/e/the-rolling-tones-at-hudak-house-tickets-926567788197`',
+        'https://www.eventbrite.com/e/club-privata-vip-suite-reservations-tickets-321505992077'
+    ]
 
     def parse(self, response):
         item = EventItem()
@@ -49,4 +60,6 @@ class EventSpider(scrapy.Spider):
             item['followers'] = response.xpath("//span[contains(@class, 'organizer-stats__highlight')]/text()").get()
         except Exception as e:
             self.logger.error(f"Error extracting followers: {e}")
+        print(f"{bcolors.OKGREEN}URL: {response.url}{bcolors.ESCAPE}")
+        print(item)
         yield item

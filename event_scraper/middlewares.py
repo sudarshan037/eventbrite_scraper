@@ -13,7 +13,7 @@ import logging
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARNING,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler()
@@ -188,7 +188,6 @@ class SeleniumMiddleware:
 
         body = driver.page_source
         response = HtmlResponse(driver.current_url, body=body, encoding='utf-8', request=request)
-        print(f"response -> {response}")
         
         # Release the driver back to the pool
         webdriver_pool.release_driver(driver)
