@@ -100,11 +100,39 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from scrapy.http import HtmlResponse
+from scrapy.downloadermiddlewares.retry import RetryMiddleware
+from scrapy.utils.response import response_status_message
 from .webdriver_pool import webdriver_pool
+from concurrent.futures import ThreadPoolExecutor
+
+class TooManyRequestsRetryMiddleware(RetryMiddleware):
+    def __init__(self, crawler):
+        super().__init__(crawler.settings)
+        self.crawler = crawler
+        self.logger = logging.getLogger(__name__)
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        return cls(crawler)
+
+    def process_response(self, request, response, spider):
+        if request.meta.get('dont_retry', False):
+            return response
+
+        if response.status == 429:
+            self.logger.info("got 429 status code")
+            reason = response_status_message(response.status)
+            self.crawler.engine.pause()
+            time.sleep(60)  # Sleep for 60 seconds before retrying (adjust as needed)
+            self.crawler.engine.unpause()
+            return self._retry(request, reason, spider) or response
+
+        return response
 
 class SeleniumMiddleware:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self.executor = ThreadPoolExecutor(max_workers=10)
 
     def scroll_to_bottom(self, driver):
         self.logger.debug("Scrolling to the bottom of the page.")
@@ -133,11 +161,19 @@ class SeleniumMiddleware:
 
 
     def process_request(self, request, spider):
+        # if 'selenium' not in request.meta:
+        #     return None
+
+        future = self.executor.submit(self.fetch_page, request)
+        response = future.result()
+        return response
+        
+    
+    def fetch_page(self, request):
         driver = webdriver_pool.get_driver()
         self.logger.debug(f"Processing request for URL: {request.url}")
         try:
             driver.get(request.url)
-            # time.sleep(2)
 
             # Use the text content to find buttons
             button1_text = 'View event'
@@ -151,9 +187,12 @@ class SeleniumMiddleware:
             #     self.logger.error("Failed to click button2 after multiple attempts")
 
             # Wait for the page to load
-            wait = WebDriverWait(driver, 5)
+            wait = WebDriverWait(driver, 10)
             try:
                 wait.until(lambda d: d.execute_script('return document.readyState') == 'complete')
+                wait.until(
+                    EC.presence_of_element_located((By.XPATH, "//span[contains(@class, 'organizer-stats__highlight')]"))
+                    )
                 self.logger.debug("Page loaded successfully.")
             except Exception as e:
                 self.logger.error(f"Error waiting for page to load: {e}")

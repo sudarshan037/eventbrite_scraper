@@ -15,15 +15,22 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 class EventSpider(scrapy.Spider):
-    url_counter = 0
     name = 'event_spider'
     allowed_domains = ['eventbrite.com']  # Add other domains if scraping other websites
-    df = pd.read_excel("inputs.xlsx")
-    start_urls = df["Event_link"].to_list()
-    # start_urls = [
-    #     'https://www.eventbrite.com/e/the-rolling-tones-at-hudak-house-tickets-926567788197`',
-    #     'https://www.eventbrite.com/e/club-privata-vip-suite-reservations-tickets-321505992077'
-    # ]
+    def __init__(self):
+        self.url_counter = 0
+        df = pd.read_excel("inputs.xlsx")
+        df = df.sample(30)
+        self.start_urls = df["Event_link"].to_list()
+        # start_urls = [
+        #     'https://www.eventbrite.com/e/the-rolling-tones-at-hudak-house-tickets-926567788197`',
+        #     'https://www.eventbrite.com/e/club-privata-vip-suite-reservations-tickets-321505992077',
+        #     'https://www.eventbrite.com/e/july-asl-wine-tasting-at-community-wine-bar-tickets-872767159067'
+        # ]
+
+    def start_requests(self):
+        for url in self.start_urls:
+            yield scrapy.Request(url, callback=self.parse)
 
     def parse(self, response):
         item = EventItem()
@@ -59,7 +66,6 @@ class EventSpider(scrapy.Spider):
             # item['followers'] = response.css('#root > div > div > div.eds-structure__body > div > div > div > div.eds-fixed-bottom-bar-layout__content > div > main > div.event-listing.event-listing--has-image > div.event-details.event-details--has-hero-section > div.event-details__wrapper > div.Layout-module__layout___1vM08 > div.Layout-module__module___2eUcs.Layout-module__mainContent___1b1nj > div.Layout-module__module___2eUcs.Layout-module__organizerPanel___2A34d > div > section > section > div.descriptive-organizer-info-mobile > div.descriptive-organizer-info-heading-signal-container > div.descriptive-organizer-info-mobile__followers-stats > div.organizer-stats.organizer-stats--condensed-full-width > div > span.organizer-stats__highlight::text').get()
             item['followers'] = response.xpath("//span[contains(@class, 'organizer-stats__highlight')]/text()").get()
         except Exception as e:
-            self.logger.error(f"Error extracting followers: {e}")
-        print(f"{bcolors.OKGREEN}{self.url_counter} URL: {response.url}{bcolors.ESCAPE}")
-        print(item)
+            print(f"Error extracting followers: {e}")
+        print(f"{bcolors.OKGREEN}{self.url_counter} URL: {response.url}{bcolors.ESCAPE}\n{item}")
         yield item
