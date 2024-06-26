@@ -30,51 +30,19 @@ logging.getLogger('scrapy.extensions.telnet').setLevel(logging.WARNING)
 logging.getLogger('WDM').setLevel(logging.WARNING)
 
 class EventScraperSpiderMiddleware:
-    # Not all methods need to be defined. If a method is not defined,
-    # scrapy acts as if the spider middleware does not modify the
-    # passed objects.
-
     @classmethod
     def from_crawler(cls, crawler):
-        # This method is used by Scrapy to create your spiders.
         s = cls()
         crawler.signals.connect(s.spider_opened, signal=signals.spider_opened)
+        crawler.signals.connect(s.spider_closed, signal=signals.spider_closed)
         return s
-
-    def process_spider_input(self, response, spider):
-        # Called for each response that goes through the spider
-        # middleware and into the spider.
-
-        # Should return None or raise an exception.
-        return None
-
-    def process_spider_output(self, response, result, spider):
-        # Called with the results returned from the Spider, after
-        # it has processed the response.
-
-        # Must return an iterable of Request, or item objects.
-        for i in result:
-            yield i
-
-    def process_spider_exception(self, response, exception, spider):
-        # Called when a spider or process_spider_input() method
-        # (from other spider middleware) raises an exception.
-
-        # Should return either None or an iterable of Request or item objects.
-        pass
-
-    def process_start_requests(self, start_requests, spider):
-        # Called with the start requests of the spider, and works
-        # similarly to the process_spider_output() method, except
-        # that it doesn’t have a response associated.
-
-        # Must return only requests (not items).
-        for r in start_requests:
-            yield r
 
     def spider_opened(self, spider):
         spider.logger.info("Spider opened: %s" % spider.name)
 
+    def spider_closed(self, spider):
+        spider.logger.info("Spider closed: %s" % spider.name)
+        webdriver_pool.close_all()
 
 class EventScraperDownloaderMiddleware:
     # Not all methods need to be defined. If a method is not defined,
@@ -167,36 +135,47 @@ class SeleniumMiddleware:
     def process_request(self, request, spider):
         driver = webdriver_pool.get_driver()
         self.logger.debug(f"Processing request for URL: {request.url}")
-        driver.get(request.url)
-        time.sleep(2)
-
-        # Use the text content to find buttons
-        button1_text = 'View event'
-        button2_text = 'View all event details'
-
-        # # Attempt to click the buttons with retry mechanism
-        # if not self.click_button_with_retry(driver, button1_text):
-        #     self.logger.error("Failed to click button1 after multiple attempts")
-
-        # if not self.click_button_with_retry(driver, button2_text):
-        #     self.logger.error("Failed to click button2 after multiple attempts")
-
-        # Wait for the page to load
-        wait = WebDriverWait(driver, 5)
         try:
-            wait.until(lambda d: d.execute_script('return document.readyState') == 'complete')
-            self.logger.debug("Page loaded successfully.")
-        except Exception as e:
-            self.logger.error(f"Error waiting for page to load: {e}")
+            driver.get(request.url)
+            # time.sleep(2)
 
-        body = driver.page_source
-        response = HtmlResponse(driver.current_url, body=body, encoding='utf-8', request=request)
-        
-        # Release the driver back to the pool
-        webdriver_pool.release_driver(driver)
+            # Use the text content to find buttons
+            button1_text = 'View event'
+            button2_text = 'View all event details'
+
+            # # Attempt to click the buttons with retry mechanism
+            # if not self.click_button_with_retry(driver, button1_text):
+            #     self.logger.error("Failed to click button1 after multiple attempts")
+
+            # if not self.click_button_with_retry(driver, button2_text):
+            #     self.logger.error("Failed to click button2 after multiple attempts")
+
+            # Wait for the page to load
+            wait = WebDriverWait(driver, 5)
+            try:
+                wait.until(lambda d: d.execute_script('return document.readyState') == 'complete')
+                self.logger.debug("Page loaded successfully.")
+            except Exception as e:
+                self.logger.error(f"Error waiting for page to load: {e}")
+
+            body = driver.page_source
+            response = HtmlResponse(driver.current_url, body=body, encoding='utf-8', request=request)
+        finally:
+            # Release the driver back to the pool
+            webdriver_pool.release_driver(driver)
         
         return response
-
+    
+    def spider_closed(self, spider):
+        print("Closing all WebDriver instances.")
+        webdriver_pool.close_all()
 
     def __del__(self):
+        print("calling function to close pool")
         webdriver_pool.close_all()
+    
+    @classmethod
+    def from_crawler(cls, crawler):
+        s = cls()
+        crawler.signals.connect(s.spider_closed, signal=signals.spider_closed)
+        return s

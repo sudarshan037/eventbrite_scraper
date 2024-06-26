@@ -8,22 +8,20 @@ from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 
 class WebDriverPool:
-    def __init__(self, size=1):
-        self.size = size
-        self.pool = Queue(maxsize=size)
-        self.lock = threading.Lock()
+    def __init__(self, maxsize=1):
+        self.pool = Queue(maxsize=maxsize)
+        for _ in range(maxsize):
+            self.pool.put(self._create_driver())
+        # self.lock = threading.Lock()
 
-        # Clear the WebDriverManager cache and reinstall ChromeDriver
+    def _create_driver(self):
         os.system('rm -rf ~/.wdm')
-        chrome_driver_path = ChromeDriverManager().install()
-
-        for _ in range(size):
-            chrome_options = Options()
-            chrome_options.add_argument("--headless")  # Ensure GUI is off
-            chrome_options.add_argument("--no-sandbox")
-            chrome_options.add_argument("--disable-dev-shm-usage")
-            driver = webdriver.Chrome(service=ChromeService(chrome_driver_path), options=chrome_options)
-            self.pool.put(driver)
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        # chrome_options.add_argument("--no-sandbox")
+        # chrome_options.add_argument("--disable-dev-shm-usage")
+        driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=chrome_options)
+        return driver
 
     def get_driver(self):
         return self.pool.get()
@@ -32,9 +30,9 @@ class WebDriverPool:
         self.pool.put(driver)
 
     def close_all(self):
+        print("closing the pool")
         while not self.pool.empty():
             driver = self.pool.get()
             driver.quit()
 
-# Create a singleton instance of WebDriverPool
-webdriver_pool = WebDriverPool(size=10)
+webdriver_pool = WebDriverPool(maxsize=1)
