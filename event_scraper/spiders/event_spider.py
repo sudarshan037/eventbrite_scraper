@@ -15,6 +15,7 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 class EventSpider(scrapy.Spider):
+    url_counter = 0
     name = 'event_spider'
     allowed_domains = ['eventbrite.com']  # Add other domains if scraping other websites
     df = pd.read_excel("inputs.xlsx")
@@ -28,6 +29,7 @@ class EventSpider(scrapy.Spider):
 
     def parse(self, response):
         item = EventItem()
+        self.url_counter += 1
 
         # Extracting data using XPath selectors
         item['event_link'] = response.url
@@ -60,6 +62,6 @@ class EventSpider(scrapy.Spider):
             item['followers'] = response.xpath("//span[contains(@class, 'organizer-stats__highlight')]/text()").get()
         except Exception as e:
             self.logger.error(f"Error extracting followers: {e}")
-        print(f"{bcolors.OKGREEN}URL: {response.url}{bcolors.ESCAPE}")
+        print(f"{bcolors.OKGREEN}{self.url_counter} URL: {response.url}{bcolors.ESCAPE}")
         print(item)
         yield item
