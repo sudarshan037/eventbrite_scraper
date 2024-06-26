@@ -19,13 +19,11 @@ class EventSpider(scrapy.Spider):
     name = 'event_spider'
     allowed_domains = ['eventbrite.com']  # Add other domains if scraping other websites
     df = pd.read_excel("inputs.xlsx")
-    df = df.head(3)
-    # df = df[df[["event_name", "followers", "date", "price", "location", "organiser_name"]].isna().all(axis=1)]
-    # start_urls = df["event_link"].to_list()
-    start_urls = [
-        'https://www.eventbrite.com/e/the-rolling-tones-at-hudak-house-tickets-926567788197`',
-        'https://www.eventbrite.com/e/club-privata-vip-suite-reservations-tickets-321505992077'
-    ]
+    start_urls = df["Event_link"].to_list()
+    # start_urls = [
+    #     'https://www.eventbrite.com/e/the-rolling-tones-at-hudak-house-tickets-926567788197`',
+    #     'https://www.eventbrite.com/e/club-privata-vip-suite-reservations-tickets-321505992077'
+    # ]
 
     def parse(self, response):
         item = EventItem()
