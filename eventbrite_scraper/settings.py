@@ -14,6 +14,28 @@ NEWSPIDER_MODULE = "eventbrite_scraper.spiders"
 
 LOG_LEVEL = "DEBUG"
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'loggers': {
+        'scrapy.utils.log': {
+            'level': 'WARNING',
+        },
+        'selenium.webdriver.common.service': {
+            'level': 'WARNING',
+        },
+        'selenium.webdriver.common.driver_finder': {
+            'level': 'WARNING',
+        },
+        'WDM': {
+            'level': 'WARNING',
+        },
+        'asyncio': {
+            'level': 'WARNING',
+        },
+    },
+}
+
 FEEDS = {
     "data/%(name)s/%(name)s_%(time)s.json": {"format": "json"}
 }
@@ -30,7 +52,7 @@ ROBOTSTXT_OBEY = True
 # Configure a delay for requests for the same website (default: 0)
 # See https://docs.scrapy.org/en/latest/topics/settings.html#download-delay
 # See also autothrottle settings and docs
-#DOWNLOAD_DELAY = 3
+DOWNLOAD_DELAY = 0
 # The download delay setting will honor only one of:
 #CONCURRENT_REQUESTS_PER_DOMAIN = 16
 #CONCURRENT_REQUESTS_PER_IP = 16
@@ -97,12 +119,6 @@ ITEM_PIPELINES = {
 REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 FEED_EXPORT_ENCODING = "utf-8"
-
-from shutil import which
-
-SELENIUM_DRIVER_NAME = "chrome"
-SELENIUM_DRIVER_EXECUTABLE_PATH = ""
-# SELENIUM_DRIVER_ARGUMENTS = ["--headless"]
 
 DOWNLOADER_MIDDLEWARES = {
     'scrapy_selenium.SeleniumMiddleware': 800
