@@ -109,7 +109,7 @@ REACTOR_THREADPOOL_MAXSIZE = 20  # Adjust as needed
 
 import logging
 
-LOG_LEVEL = 'WARNING'
+LOG_LEVEL = 'INFO'
 
 LOGGING = {
     'version': 1,
@@ -131,4 +131,8 @@ LOGGING = {
             'level': 'WARNING',
         },
     },
+}
+
+EXTENSIONS = {
+    'scrapy.extensions.logstats.LogStats': 100,
 }

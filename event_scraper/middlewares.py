@@ -24,7 +24,10 @@ logger = logging.getLogger(__name__)
 # Suppress logging from selenium and urllib3
 logging.getLogger('selenium.webdriver.remote.remote_connection').setLevel(logging.WARNING)
 logging.getLogger('urllib3.connectionpool').setLevel(logging.WARNING)
-
+logging.getLogger('scrapy.utils.log').setLevel(logging.WARNING)
+logging.getLogger('scrapy.middleware').setLevel(logging.WARNING)
+logging.getLogger('scrapy.extensions.telnet').setLevel(logging.WARNING)
+logging.getLogger('WDM').setLevel(logging.WARNING)
 
 class EventScraperSpiderMiddleware:
     # Not all methods need to be defined. If a method is not defined,
