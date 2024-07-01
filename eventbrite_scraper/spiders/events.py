@@ -37,12 +37,6 @@ class EventsSpider(scrapy.Spider):
 
 
     def start_requests(self):
-        df = pd.read_excel("data/inputs/inputs.xlsx")
-        df = df.sample(30)
-        urls = df["Event_link"].to_list()
-        # urls = [
-        #     "https://www.eventbrite.com/e/oregon-wedding-day-best-of-2024-awards-gala-tickets-881507160647?aff=ebdssbdestsearch",
-        # ]
         urls = [
             "https://www.instagram.com/desireenicolexxo",
             "https://www.instagram.com/keychron",
@@ -56,32 +50,29 @@ class EventsSpider(scrapy.Spider):
 
     def parse(self, response):
         item = EventItem()
-        item['event_link'] = response.url
-        print(f"{bcolors.OKGREEN}{self.url_counter} URL: {item['event_link']}{bcolors.ESCAPE}")
+        item['link'] = response.url
+        self.url_counter += 1
+        print(f"{bcolors.OKGREEN}{self.url_counter} URL: {item['link']}{bcolors.ESCAPE}")
 
         self.driver.get(response.url)
         wait = WebDriverWait(self.driver, 15)
-        
-        wait.until(
-            EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'agx')] | //div[contains(@class, '_aagx')]"))
-        )
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'header section')))
+        # wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'agx')] | //div[contains(@class, '_aagx')]")))
         
         body = self.driver.page_source
         response = Selector(text=body)
         # name, follower, following, is_professional, bio with links, media count, is_verified, 
         
-        self.url_counter += 1
         username_xpath = (
             "//h2[contains(@class, 'x1lliihq x1plvlek xryxfnj x1n2onr6 x193iq5w xeuugli x1fj9vlw x13faqbe x1vvkbs x1s928wv xhkezso x1gmr53x x1cpjm7i x1fgarty x1943h6x x1i0vuye x1ms8i2q xo1l8bm x5n08af x10wh9bi x1wdrske x8viiok x18hxmgj')]/text()"
             " | "
             "//span[contains(@class, 'x1lliihq x193iq5w x6ikm8r x10wlt62 xlyipyv xuxw1ft')]/text()"
         )
-        item['event_name'] = response.xpath(username_xpath).get()
-        item['date'] = response.xpath("//time[contains(@class, 'start-date')]/text()").get()
-        item['price'] = response.xpath("//div[contains(@class, 'conversation-bar-container')]/text()").get()
-        # item['price'] = response.css('#root > div > div > div.eds-structure__body > div > div > div > div.eds-fixed-bottom-bar-layout__content > div > main > div.event-listing.event-listing--has-image > div.event-details.event-details--has-hero-section > div.event-details__wrapper > div.Layout-module__layout___1vM08 > div.Layout-module__module___2eUcs.Layout-module__aside___2Tdmd > div > div.conversion-bar-bordered > div.conversion-bar.conversion-bar--checkout-opener > div.conversion-bar__body > div::text').get()
-        item['location'] = response.xpath("//div[contains(@class, 'location-info__address')]/text()").get()
-        item['organiser_name'] = response.xpath("//strong[contains(@class, 'organizer-listing-info-variant-b__name-link')]/text()").get()
-        item['followers'] = response.xpath("//li[2]//span[@class='html-span']/@title").get()
-        # print(item)
+        item['username'] = response.xpath(username_xpath).get()
+        item['posts'] = response.css('header section ul li:nth-child(1) span span').get()
+        item['followers'] = response.css('header section ul li:nth-child(2) span span').get()
+        item['following'] = response.css('header section ul li:nth-child(3) span span').get()
+        item['bio'] = response.css('header section div.-vDIg span').get()
+        item['professional'] = response.xpath("//li[2]//span[@class='html-span']/@title").get()
+        item['verified'] = response.xpath("//li[2]//span[@class='html-span']/@title").get()
         yield item

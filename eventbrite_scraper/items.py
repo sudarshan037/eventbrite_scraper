@@ -12,10 +12,11 @@ class EventbriteScraperItem(scrapy.Item):
     pass
 
 class EventItem(scrapy.Item):
-    event_link = scrapy.Field()
-    event_name = scrapy.Field()
-    date = scrapy.Field()
-    price = scrapy.Field()
-    location = scrapy.Field()
-    organiser_name = scrapy.Field()
+    link = scrapy.Field()
+    username = scrapy.Field()
+    posts = scrapy.Field()
     followers = scrapy.Field()
+    following = scrapy.Field()
+    bio = scrapy.Field()
+    professional = scrapy.Field()
+    verified = scrapy.Field()
