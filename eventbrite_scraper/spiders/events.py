@@ -39,8 +39,8 @@ class EventsSpider(scrapy.Spider):
     def start_requests(self):
         urls = [
             "https://www.instagram.com/desireenicolexxo",
-            "https://www.instagram.com/keychron",
-            "https://www.instagram.com/arushi082"
+            # "https://www.instagram.com/keychron",
+            # "https://www.instagram.com/arushi082"
         ]
         for url in urls:
             yield scrapy.Request(
@@ -69,10 +69,10 @@ class EventsSpider(scrapy.Spider):
             "//span[contains(@class, 'x1lliihq x193iq5w x6ikm8r x10wlt62 xlyipyv xuxw1ft')]/text()"
         )
         item['username'] = response.xpath(username_xpath).get()
-        item['posts'] = response.css('header section ul li:nth-child(1) span span').get()
-        item['followers'] = response.css('header section ul li:nth-child(2) span span').get()
-        item['following'] = response.css('header section ul li:nth-child(3) span span').get()
+        item['posts'] = response.css('header section ul li:nth-child(1) span span::text').get()
+        item['followers'] = response.css('header section ul li:nth-child(2) span span::text').get()
+        item['following'] = response.css('header section ul li:nth-child(3) span span::text').get()
         item['bio'] = response.css('header section div.-vDIg span').get()
-        item['professional'] = response.xpath("//li[2]//span[@class='html-span']/@title").get()
-        item['verified'] = response.xpath("//li[2]//span[@class='html-span']/@title").get()
+        item['professional'] = response.xpath("//div[contains(@class, '_ap3a _aaco _aacu _aacy _aad6 _aade')]/text()").get()
+        item['verified'] = response.xpath("//svg[@aria-label='Verified']").get() is not None
         yield item
