@@ -1,4 +1,5 @@
 import scrapy
+import time
 import pandas as pd
 from eventbrite_scraper.items import EventItem
 from eventbrite_scraper.utils import bcolors
@@ -42,6 +43,11 @@ class EventsSpider(scrapy.Spider):
         # urls = [
         #     "https://www.eventbrite.com/e/oregon-wedding-day-best-of-2024-awards-gala-tickets-881507160647?aff=ebdssbdestsearch",
         # ]
+        urls = [
+            "https://www.instagram.com/desireenicolexxo",
+            "https://www.instagram.com/keychron",
+            "https://www.instagram.com/arushi082"
+        ]
         for url in urls:
             yield scrapy.Request(
                 url=url,
@@ -54,32 +60,28 @@ class EventsSpider(scrapy.Spider):
         print(f"{bcolors.OKGREEN}{self.url_counter} URL: {item['event_link']}{bcolors.ESCAPE}")
 
         self.driver.get(response.url)
-        wait = WebDriverWait(self.driver, 10)
-        try:
-            # press button 1
-            button1_text = 'View event'
-            button1 = self.driver.find_element(By.XPATH, f"//button[text()='{button1_text}']")
-            button1.click()
-            # press button 2
-            button2_text = 'View all event details'
-            button2 = self.driver.find_element(By.XPATH, f"//button[text()='{button2_text}']")
-            button2.click()
-        except:
-            pass
+        wait = WebDriverWait(self.driver, 15)
+        
         wait.until(
-                    EC.presence_of_element_located((By.XPATH, "//span[contains(@class, 'organizer-stats__highlight')]"))
-                    )
+            EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'agx')] | //div[contains(@class, '_aagx')]"))
+        )
+        
         body = self.driver.page_source
         response = Selector(text=body)
+        # name, follower, following, is_professional, bio with links, media count, is_verified, 
         
         self.url_counter += 1
-        
-        item['event_name'] = response.xpath("//h1[contains(@class, 'event-title')]/text()").get()
+        username_xpath = (
+            "//h2[contains(@class, 'x1lliihq x1plvlek xryxfnj x1n2onr6 x193iq5w xeuugli x1fj9vlw x13faqbe x1vvkbs x1s928wv xhkezso x1gmr53x x1cpjm7i x1fgarty x1943h6x x1i0vuye x1ms8i2q xo1l8bm x5n08af x10wh9bi x1wdrske x8viiok x18hxmgj')]/text()"
+            " | "
+            "//span[contains(@class, 'x1lliihq x193iq5w x6ikm8r x10wlt62 xlyipyv xuxw1ft')]/text()"
+        )
+        item['event_name'] = response.xpath(username_xpath).get()
         item['date'] = response.xpath("//time[contains(@class, 'start-date')]/text()").get()
         item['price'] = response.xpath("//div[contains(@class, 'conversation-bar-container')]/text()").get()
         # item['price'] = response.css('#root > div > div > div.eds-structure__body > div > div > div > div.eds-fixed-bottom-bar-layout__content > div > main > div.event-listing.event-listing--has-image > div.event-details.event-details--has-hero-section > div.event-details__wrapper > div.Layout-module__layout___1vM08 > div.Layout-module__module___2eUcs.Layout-module__aside___2Tdmd > div > div.conversion-bar-bordered > div.conversion-bar.conversion-bar--checkout-opener > div.conversion-bar__body > div::text').get()
         item['location'] = response.xpath("//div[contains(@class, 'location-info__address')]/text()").get()
         item['organiser_name'] = response.xpath("//strong[contains(@class, 'organizer-listing-info-variant-b__name-link')]/text()").get()
-        item['followers'] = response.xpath("//span[contains(@class, 'organizer-stats__highlight')]/text()").get()
-        print(item)
+        item['followers'] = response.xpath("//li[2]//span[@class='html-span']/@title").get()
+        # print(item)
         yield item
