@@ -37,12 +37,16 @@ class EventsSpider(scrapy.Spider):
 
 
     def start_requests(self):
-        urls = [
-            "https://www.instagram.com/desireenicolexxo",
-            # "https://www.instagram.com/keychron",
-            # "https://www.instagram.com/arushi082"
-        ]
-        for url in urls:
+        df = pd.read_excel("data/inputs/insta_profiles.xlsx")
+        usernames = df["query"].to_list()
+        # usernames = [
+        #     "desireenicolexxo",
+        #     "keychron",
+        #     "arushi082"
+        #     "gelohenderson"
+        # ]
+        for username in usernames:
+            url = f"https://www.instagram.com/{username}"
             yield scrapy.Request(
                 url=url,
                 callback=self.parse,
@@ -72,7 +76,22 @@ class EventsSpider(scrapy.Spider):
         item['posts'] = response.css('header section ul li:nth-child(1) span span::text').get()
         item['followers'] = response.css('header section ul li:nth-child(2) span span::text').get()
         item['following'] = response.css('header section ul li:nth-child(3) span span::text').get()
-        item['bio'] = response.css('header section div.-vDIg span').get()
+        item['bio'] = "\n".join(response.xpath("//span[contains(@class, '_ap3a _aaco _aacu _aacx _aad7 _aade')]//text()").extract())
+        # item['bio'] = response.xpath("//span[contains(@class, '_ap3a _aaco _aacu _aacx _aad7 _aade')]/text()").get()
+        encoded_bio_url = response.xpath("//a[contains(@href, 'l.instagram.com')]/@href").get()
+        if encoded_bio_url:
+            decoded_bio_url = self.decode_instagram_url(encoded_bio_url)
+            item['bio_links'] = decoded_bio_url
+        else:
+            item['bio_links'] = ""
         item['professional'] = response.xpath("//div[contains(@class, '_ap3a _aaco _aacu _aacy _aad6 _aade')]/text()").get()
         item['verified'] = response.xpath("//svg[@aria-label='Verified']").get() is not None
         yield item
+
+    def decode_instagram_url(self, url):
+        from urllib.parse import urlparse, parse_qs, unquote
+
+        parsed_url = urlparse(url)
+        query_params = parse_qs(parsed_url.query)
+        decoded_url = unquote(query_params.get('u', [''])[0])
+        return decoded_url

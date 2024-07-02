@@ -18,5 +18,6 @@ class EventItem(scrapy.Item):
     followers = scrapy.Field()
     following = scrapy.Field()
     bio = scrapy.Field()
+    bio_links = scrapy.Field()
     professional = scrapy.Field()
     verified = scrapy.Field()
