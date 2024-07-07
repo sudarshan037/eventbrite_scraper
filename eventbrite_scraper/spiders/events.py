@@ -1,5 +1,6 @@
 import scrapy
 import time
+import random
 import pandas as pd
 from eventbrite_scraper.items import EventItem
 from eventbrite_scraper.utils import bcolors
@@ -11,6 +12,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
+from fake_useragent import UserAgent
 
 import logging
 logger = logging.getLogger(__name__)
@@ -27,6 +29,23 @@ class EventsSpider(scrapy.Spider):
     name = "events"
     url_counter = 0
 
+    custom_settings = {
+        'DOWNLOAD_DELAY': random.uniform(3, 6),
+        'USER_AGENT': UserAgent().random,
+        # 'ROTATING_PROXY_LIST': [
+        #     'http://proxy1.com:port',
+        #     'http://proxy2.com:port',
+        #     'http://proxy3.com:port',
+        # ],
+        'DOWNLOADER_MIDDLEWARES': {
+            'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
+            'scrapy_user_agents.middlewares.RandomUserAgentMiddleware': 400,
+            'scrapy.downloadermiddlewares.retry.RetryMiddleware': 90,
+            # 'scrapy_proxies.RandomProxy': 100,
+            # 'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 110,
+        },
+    }
+
     def __init__(self, *args, **kwargs):
         super(EventsSpider, self).__init__(*args, **kwargs)
         chrome_options = Options()
@@ -39,12 +58,12 @@ class EventsSpider(scrapy.Spider):
     def start_requests(self):
         df = pd.read_excel("data/inputs/insta_profiles.xlsx")
         usernames = df["query"].to_list()
-        # usernames = [
-        #     "desireenicolexxo",
-        #     "keychron",
-        #     "arushi082"
-        #     "gelohenderson"
-        # ]
+        usernames = [
+            "desireenicolexxo",
+            "keychron",
+            "arushi082"
+            "gelohenderson"
+        ]
         for username in usernames:
             url = f"https://www.instagram.com/{username}"
             yield scrapy.Request(
@@ -87,6 +106,9 @@ class EventsSpider(scrapy.Spider):
         item['professional'] = response.xpath("//div[contains(@class, '_ap3a _aaco _aacu _aacy _aad6 _aade')]/text()").get()
         item['verified'] = response.xpath("//svg[@aria-label='Verified']").get() is not None
         yield item
+
+        # Introduce random delays to mimic human behavior
+        time.sleep(random.uniform(5, 10))
 
     def decode_instagram_url(self, url):
         from urllib.parse import urlparse, parse_qs, unquote
