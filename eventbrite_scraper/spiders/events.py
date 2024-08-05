@@ -37,7 +37,6 @@ class EventsSpider(scrapy.Spider):
 
     def start_requests(self):
         df = pd.read_excel("data/inputs/inputs.xlsx")
-        df = df.sample(30)
         urls = df["Event_link"].to_list()
         # urls = [
         #     "https://www.eventbrite.com/e/oregon-wedding-day-best-of-2024-awards-gala-tickets-881507160647?aff=ebdssbdestsearch",

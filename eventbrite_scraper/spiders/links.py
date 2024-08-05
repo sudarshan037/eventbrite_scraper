@@ -52,15 +52,7 @@ class EventsSpider(scrapy.Spider):
 
         self.driver.get(response.url)
         wait = WebDriverWait(self.driver, 10)
-        try:
-            # Example of clicking a button if needed
-            # button1_text = 'event-card-link'
-            # button1 = self.driver.find_element(By.XPATH, f"//button[text()='{button1_text}']")
-            # button1.click()
-            pass
-        except Exception as e:
-            logger.warning(f"Button not found or not clickable: {e}")
-
+        
         body = self.driver.page_source
         response = Selector(text=body)
         

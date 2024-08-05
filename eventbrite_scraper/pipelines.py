@@ -20,8 +20,13 @@ class ExcelExportPipeline:
     def close_spider(self, spider):
         df = pd.DataFrame(self.items)
         timestamp = datetime.now()
-        df.to_excel(f"data/outputs/events_{str(timestamp)}.xlsx", index=False)
-        print("Excel file saved.")
+        print(f"SPIDER_NAME: {spider.name}")
+        if spider.name == "events":
+            df.to_excel(f"data/outputs/events_{str(timestamp)}.xlsx", index=False)
+        elif spider.name == "links":
+            df.to_excel(f"data/inputs/events_{str(timestamp)}.xlsx", index=False)
+        else:
+            print("Excel file not saved.")
 
     def process_item(self, item, spider):
         self.items.append(dict(item))
