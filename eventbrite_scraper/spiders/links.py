@@ -49,8 +49,8 @@ class EventsSpider(scrapy.Spider):
 
     def parse(self, response):
         item = EventLink()
-        item['links'] = response.url
-        print(f"{bcolors.OKGREEN}{self.url_counter} URL: {item['links']}{bcolors.ESCAPE}")
+        item['link_name'] = response.url
+        print(f"{bcolors.OKGREEN}{self.url_counter} URL: {item['link_name']}{bcolors.ESCAPE}")
 
         self.driver.get(response.url)
         wait = WebDriverWait(self.driver, 10)

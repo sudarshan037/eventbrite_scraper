@@ -21,4 +21,5 @@ class EventItem(scrapy.Item):
     followers = scrapy.Field()
 
 class EventLink(scrapy.Item):
+    link_name = scrapy.Field()
     links = scrapy.Field()
