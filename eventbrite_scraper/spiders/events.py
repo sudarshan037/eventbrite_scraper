@@ -38,7 +38,7 @@ class EventsSpider(scrapy.Spider):
 
 
     def start_requests(self):
-        xlsx_files = glob.glob(os.path.join("/Users/arushigogia/Downloads/Personal/Event_Scraper/eventbrite_scraper/data/inputs", '*.xlsx'))
+        xlsx_files = glob.glob(os.path.join("/Users/shubh/Downloads/event_scraper/eventbrite_scraper/data/inputs", '*.xlsx'))
         print(xlsx_files)
         # Check if there are any .xlsx files
         if not xlsx_files:

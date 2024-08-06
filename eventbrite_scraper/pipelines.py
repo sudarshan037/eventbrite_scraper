@@ -27,11 +27,18 @@ class ExcelExportPipeline:
             df = pd.DataFrame(self.items)
             df.to_excel(f"data/outputs/events_{str(timestamp)}.xlsx", index=False)
         elif spider.name == "links":
-            link_name = self.items[0]['link_name']
+            data =[]
+            for item in self.items:
+                link_name = item['link_name']
+                print(f"{bcolors.OKCYAN}{link_name}{bcolors.ESCAPE}")
+                extracted_links = set(item['links'])
+                for link in extracted_links:
+                    data.append({'main_link': link_name, 'Event_link': link})
+            # link_name = self.items[0]['link_name']
             # print(f"{bcolors.OKCYAN}{link_name}{bcolors.ESCAPE}")
-            extracted_links = list(set(self.items[0]['links']))
-            df = pd.DataFrame(extracted_links,columns=['Event_link'])
-            df['main_link'] = link_name
+            # extracted_links = list(set(self.items[0]['links']))
+            df = pd.DataFrame(data)
+            # df['main_link'] = link_name
             df.to_excel(f"data/inputs/events_{str(timestamp)}.xlsx", index=False)
         else:
             print("Excel file not saved.")
