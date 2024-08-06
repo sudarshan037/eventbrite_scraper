@@ -1,3 +1,5 @@
+import os
+import glob
 import scrapy
 import pandas as pd
 from eventbrite_scraper.items import EventItem
@@ -36,7 +38,16 @@ class EventsSpider(scrapy.Spider):
 
 
     def start_requests(self):
-        df = pd.read_excel("data/inputs/inputs.xlsx")
+        xlsx_files = glob.glob(os.path.join("/Users/arushigogia/Downloads/Personal/Event_Scraper/eventbrite_scraper/data/inputs", '*.xlsx'))
+        print(xlsx_files)
+        # Check if there are any .xlsx files
+        if not xlsx_files:
+            print("No .xlsx files found in the folder.")
+        else:
+            # Get the latest modified file
+            latest_file = max(xlsx_files, key=os.path.getmtime)
+            print(latest_file)
+        df = pd.read_excel(latest_file)
         urls = df["Event_link"].to_list()
         # urls = [
         #     "https://www.eventbrite.com/e/oregon-wedding-day-best-of-2024-awards-gala-tickets-881507160647?aff=ebdssbdestsearch",

@@ -36,9 +36,11 @@ class EventsSpider(scrapy.Spider):
 
 
     def start_requests(self):
-        urls = [
-            "https://www.eventbrite.com/d/united-states/paid--festivals/student-welcome-week/?page=1",
-        ]
+        df = pd.read_excel("data/inputs/links.xlsx")
+        urls = df["links"].to_list()
+        # urls = [
+        #     "https://www.eventbrite.com/d/united-states/paid--festivals/student-welcome-week/?page=1",
+        # ]
         for url in urls:
             yield scrapy.Request(
                 url=url,

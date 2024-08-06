@@ -8,6 +8,7 @@
 from itemadapter import ItemAdapter
 import pandas as pd
 from datetime import datetime
+from eventbrite_scraper.utils import bcolors
 
 class EventbriteScraperPipeline:
     def process_item(self, item, spider):
@@ -18,12 +19,16 @@ class ExcelExportPipeline:
         self.items = []
 
     def close_spider(self, spider):
-        df = pd.DataFrame(self.items)
+        print(f"{bcolors.OKGREEN}{self.items}{bcolors.ESCAPE}")
+        
         timestamp = datetime.now()
         print(f"SPIDER_NAME: {spider.name}")
         if spider.name == "events":
+            df = pd.DataFrame(self.items)
             df.to_excel(f"data/outputs/events_{str(timestamp)}.xlsx", index=False)
         elif spider.name == "links":
+            extracted_links = list(set(self.items[0]['links']))
+            df = pd.DataFrame(extracted_links,columns=['Event_link'])
             df.to_excel(f"data/inputs/events_{str(timestamp)}.xlsx", index=False)
         else:
             print("Excel file not saved.")
