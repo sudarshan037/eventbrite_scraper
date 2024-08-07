@@ -12,6 +12,12 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.firefox.service import Service
+from selenium.webdriver.firefox.options import Options
+from webdriver_manager.firefox import GeckoDriverManager
+
+
+
 
 import logging
 logger = logging.getLogger(__name__)
@@ -30,11 +36,16 @@ class EventsSpider(scrapy.Spider):
 
     def __init__(self, *args, **kwargs):
         super(EventsSpider, self).__init__(*args, **kwargs)
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")  # Ensure GUI is off
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        # chrome_options = Options()
+        # chrome_options.add_argument("--headless")  # Ensure GUI is off
+        # chrome_options.add_argument("--no-sandbox")
+        # chrome_options.add_argument("--disable-dev-shm-usage")
+        # self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        firefox_options = Options()
+        firefox_options.add_argument("--headless")  # Ensure GUI is off
+        firefox_options.add_argument("--no-sandbox")
+        firefox_options.add_argument("--disable-dev-shm-usage")
+        self.driver = webdriver.Firefox(service=Service(GeckoDriverManager().install()), options=firefox_options)
 
 
     def start_requests(self):
