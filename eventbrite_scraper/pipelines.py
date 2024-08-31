@@ -1,14 +1,7 @@
-# Define your item pipelines here
-#
-# Don't forget to add your pipeline to the ITEM_PIPELINES setting
-# See: https://docs.scrapy.org/en/latest/topics/item-pipeline.html
-
-
-# useful for handling different item types with a single interface
 from itemadapter import ItemAdapter
 import pandas as pd
 from datetime import datetime
-from scrapper.utils import bcolors
+from eventbrite_scraper.utils import bcolors
 
 class EventbriteScraperPipeline:
     def process_item(self, item, spider):

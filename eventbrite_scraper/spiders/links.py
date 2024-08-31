@@ -1,7 +1,7 @@
 import scrapy
 import pandas as pd
-from scrapper.items import EventLink
-from scrapper.utils import bcolors
+from eventbrite_scraper.items import EventLink
+from eventbrite_scraper.utils import bcolors
 from scrapy.selector import Selector
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
