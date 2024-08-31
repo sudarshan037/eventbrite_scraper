@@ -1,7 +1,7 @@
 import scrapy
 import pandas as pd
-from eventbrite_scraper.items import EventLink
-from eventbrite_scraper.utils import bcolors
+from scrapper.items import EventLink
+from scrapper.utils import bcolors
 from scrapy.selector import Selector
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -45,11 +45,11 @@ class EventsSpider(scrapy.Spider):
 
 
     def start_requests(self):
-        df = pd.read_excel("data/inputs/links.xlsx")
-        urls = df["links"].to_list()
-        # urls = [
-        #     "https://www.eventbrite.com/d/united-states/paid--festivals/student-welcome-week/?page=1",
-        # ]
+        # df = pd.read_excel("data/inputs/links.xlsx")
+        # urls = df["links"].to_list()
+        urls = [
+            "https://www.eventbrite.com/d/united-states/paid--festivals/student-welcome-week/?page=1",
+        ]
         for url in urls:
             yield scrapy.Request(
                 url=url,

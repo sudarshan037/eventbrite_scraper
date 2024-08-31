@@ -8,7 +8,7 @@
 from itemadapter import ItemAdapter
 import pandas as pd
 from datetime import datetime
-from eventbrite_scraper.utils import bcolors
+from scrapper.utils import bcolors
 
 class EventbriteScraperPipeline:
     def process_item(self, item, spider):
