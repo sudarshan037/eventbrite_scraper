@@ -39,7 +39,7 @@ class EventsSpider(scrapy.Spider):
 
         self.azure_cosmos = AzureCosmos()
         self.no_record_count = 0
-        self.max_no_record_wait = 5
+        self.max_no_record_wait = 2
 
         chrome_options = Options()
         chrome_options.add_argument("--headless")  # Ensure GUI is off
@@ -116,7 +116,5 @@ class EventsSpider(scrapy.Spider):
         yield item
 
     def close(self, reason):
-        # TODO: destroy cosmos client
-        self.client.close()
         self.driver.quit()
         print(f"Spider closed. Reason: {reason}")

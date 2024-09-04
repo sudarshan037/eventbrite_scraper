@@ -7,8 +7,10 @@
 # useful for handling different item types with a single interface
 from itemadapter import ItemAdapter
 import pandas as pd
+import hashlib
 from datetime import datetime
 from eventbrite_scraper.utils import bcolors
+from azure_cosmos_db import AzureCosmos
 
 class EventbriteScraperPipeline:
     def process_item(self, item, spider):
@@ -45,4 +47,45 @@ class ExcelExportPipeline:
 
     def process_item(self, item, spider):
         self.items.append(dict(item))
+        return item
+    
+class CosmosUploadPipeline:
+    def __init__(self):
+        self.azure_cosmos = AzureCosmos()
+        self.azure_cosmos.DATABASE_ID, self.azure_cosmos.CONTAINER_NAME = "Scraper", "eventBrite_outputs"
+        self.azure_cosmos.container = self.azure_cosmos.initialize_cosmosdb()
+    
+    def open_spider(self, spider):
+        self.items = []
+
+    def close_spider(self, spider):
+        print(f"{bcolors.OKGREEN}{self.items}{bcolors.ESCAPE}")
+        
+        timestamp = datetime.now()
+        print(f"SPIDER_NAME: {spider.name}")
+        if spider.name == "events":
+            df = pd.DataFrame(self.items)
+            df.to_excel(f"data/outputs/events_{str(timestamp)}.xlsx", index=False)
+        elif spider.name == "links":
+            data =[]
+            for item in self.items:
+                link_name = item['link_name']
+                print(f"{bcolors.OKCYAN}{link_name}{bcolors.ESCAPE}")
+                extracted_links = set(item['links'])
+                for link in extracted_links:
+                    data.append({'main_link': link_name, 'Event_link': link})
+            # link_name = self.items[0]['link_name']
+            # print(f"{bcolors.OKCYAN}{link_name}{bcolors.ESCAPE}")
+            # extracted_links = list(set(self.items[0]['links']))
+            df = pd.DataFrame(data)
+            # df['main_link'] = link_name
+            df.to_excel(f"data/inputs/events_{str(timestamp)}.xlsx", index=False)
+        else:
+            print("Excel file not saved.")
+
+    def process_item(self, item, spider):
+        self.items.append(dict(item))
+        item = dict(item)
+        item["id"] = hashlib.sha256(item["event_link"].encode()).hexdigest()
+        self.azure_cosmos.create_conversation(item)
         return item

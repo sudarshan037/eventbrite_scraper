@@ -90,7 +90,8 @@ DOWNLOAD_DELAY = 0
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-    "eventbrite_scraper.pipelines.ExcelExportPipeline": 300,
+    # "eventbrite_scraper.pipelines.ExcelExportPipeline": 300,
+    "eventbrite_scraper.pipelines.CosmosUploadPipeline": 300,
     # "eventbrite_scraper.pipelines.EventbriteScraperPipeline": 300,
 }
 

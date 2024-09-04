@@ -65,8 +65,9 @@ class AzureCosmos:
         conversation_id = conversation_data["id"]
         existing_conversation = self.fetch_conversation(conversation_id)
 
+        print(f"existing_conversation: {existing_conversation}")
         if existing_conversation:
-            print("[INFO] Record already exists, skipping insertion.")
+            print(f"[INFO] Record already exists in {self.CONTAINER_NAME}, skipping insertion.")
             return False
 
         try:
@@ -112,7 +113,8 @@ if __name__ == "__main__":
 
     azure_cosmos = AzureCosmos()
     azure_cosmos.DATABASE_ID, azure_cosmos.CONTAINER_NAME = "Scraper", "eventBrite_events"
-
+    # azure_cosmos.DATABASE_ID, azure_cosmos.CONTAINER_NAME = "Scraper", "eventBrite_outputs"
+    # print(azure_cosmos.fetch_one_record())
     for url in urls:
         data = {
             "id": hashlib.sha256(url.encode()).hexdigest(),
