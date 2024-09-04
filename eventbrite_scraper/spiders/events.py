@@ -1,7 +1,10 @@
 import os
 import glob
+import time
 import scrapy
 import pandas as pd
+from azure_cosmos_db import AzureCosmos
+from scrapy.exceptions import CloseSpider
 from eventbrite_scraper.items import EventItem
 from eventbrite_scraper.utils import bcolors
 from scrapy.selector import Selector
@@ -12,12 +15,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.firefox.service import Service
-from selenium.webdriver.firefox.options import Options
-from webdriver_manager.firefox import GeckoDriverManager
-
-
-
+# from selenium.webdriver.firefox.service import Service
+# from selenium.webdriver.firefox.options import Options
+# from webdriver_manager.firefox import GeckoDriverManager
 
 import logging
 logger = logging.getLogger(__name__)
@@ -36,38 +36,48 @@ class EventsSpider(scrapy.Spider):
 
     def __init__(self, *args, **kwargs):
         super(EventsSpider, self).__init__(*args, **kwargs)
-        # chrome_options = Options()
-        # chrome_options.add_argument("--headless")  # Ensure GUI is off
-        # chrome_options.add_argument("--no-sandbox")
-        # chrome_options.add_argument("--disable-dev-shm-usage")
-        # self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-        firefox_options = Options()
-        firefox_options.add_argument("--headless")  # Ensure GUI is off
-        firefox_options.add_argument("--no-sandbox")
-        firefox_options.add_argument("--disable-dev-shm-usage")
-        self.driver = webdriver.Firefox(service=Service(GeckoDriverManager().install()), options=firefox_options)
+
+        self.azure_cosmos = AzureCosmos()
+        self.no_record_count = 0
+        self.max_no_record_wait = 5
+
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")  # Ensure GUI is off
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+
+        # firefox_options = Options()
+        # firefox_options.add_argument("--headless")  # Ensure GUI is off
+        # firefox_options.add_argument("--no-sandbox")
+        # firefox_options.add_argument("--disable-dev-shm-usage")
+        # self.driver = webdriver.Firefox(service=Service(GeckoDriverManager().install()), options=firefox_options)
 
 
     def start_requests(self):
-        xlsx_files = glob.glob(os.path.join("/Users/shubh/Downloads/event_scraper/eventbrite_scraper/data/inputs", '*.xlsx'))
-        print(xlsx_files)
-        # Check if there are any .xlsx files
-        if not xlsx_files:
-            print("No .xlsx files found in the folder.")
-        else:
-            # Get the latest modified file
-            latest_file = max(xlsx_files, key=os.path.getmtime)
-            print(latest_file)
-        df = pd.read_excel(latest_file)
-        urls = df["Event_link"].to_list()
-        # urls = [
-        #     "https://www.eventbrite.com/e/oregon-wedding-day-best-of-2024-awards-gala-tickets-881507160647?aff=ebdssbdestsearch",
-        # ]
-        for url in urls:
-            yield scrapy.Request(
-                url=url,
-                callback=self.parse,
-            )
+        # df = pd.read_csv("data/inputs/Dating events - Sheet2.csv")
+        # urls = df["Event_link"].to_list()
+        while self.no_record_count < self.max_no_record_wait:
+            items = self.azure_cosmos.fetch_one_record()
+            # urls = [
+            #     "https://www.eventbrite.com/e/oregon-wedding-day-best-of-2024-awards-gala-tickets-881507160647?aff=ebdssbdestsearch",
+            #     # "https://www.eventbrite.com/e/bradenton-speed-dating-for-singles-age-30-49-at-motorworks-brewing-tickets-1004871346247?aff=ebdssbdestsearch",
+            # ]
+            if items:
+                self.no_record_count = 0
+                for item in items:
+                    yield scrapy.Request(
+                        url=item["url"],
+                        callback=self.parse,
+                    )
+                    self.azure_cosmos.pop_one_record(item)
+            else:
+                self.no_record_count += 1
+                print(f"No new records found. Attempt {self.no_record_count}. Waiting for new records...")
+                time.sleep(10)  # Wait for 10 seconds before checking again
+
+        print("Max waiting time reached without new records. Closing spider.")
+        raise CloseSpider("No new records found after max attempts.")
 
     def parse(self, response):
         item = EventItem()
@@ -104,3 +114,9 @@ class EventsSpider(scrapy.Spider):
         item['followers'] = response.xpath("//span[contains(@class, 'organizer-stats__highlight')]/text()").get()
         print(item)
         yield item
+
+    def close(self, reason):
+        # TODO: destroy cosmos client
+        self.client.close()
+        self.driver.quit()
+        print(f"Spider closed. Reason: {reason}")
