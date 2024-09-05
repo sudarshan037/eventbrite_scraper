@@ -1,4 +1,5 @@
 import time
+import random
 import hashlib
 import scrapy
 from azure.cosmos.exceptions import CosmosHttpResponseError
@@ -71,7 +72,8 @@ class CosmosDBSpiderMixin(object):
         :rtype: scrapy.Request or None
         """
         # query = "SELECT TOP 1 * FROM c WHERE c.processed = false"
-        query = "SELECT TOP 1 * FROM c WHERE IS_DEFINED(c.links) and NOT IS_DEFINED(c.followers)"
+        random_offset = random.randrange(0, 10)
+        query = f"SELECT * FROM c WHERE IS_DEFINED(c.links) and NOT IS_DEFINED(c.followers) OFFSET {random_offset} LIMIT 1"
         try:
             records = list(self.container.query_items(
                 query=query,
