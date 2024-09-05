@@ -61,6 +61,9 @@ AUTOTHROTTLE_MAX_DELAY = 60   # Maximum download delay
 CONCURRENT_REQUESTS_PER_DOMAIN = 2
 CONCURRENT_REQUESTS_PER_IP = 2
 
+DUPEFILTER_CLASS = 'scrapy.dupefilters.BaseDupeFilter'
+HTTPERROR_ALLOWED_CODES = [404]
+
 # Disable cookies (enabled by default)
 #COOKIES_ENABLED = False
 

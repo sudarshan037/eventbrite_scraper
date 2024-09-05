@@ -1,6 +1,7 @@
 import time
 import hashlib
 import scrapy
+from azure.cosmos.exceptions import CosmosHttpResponseError
 from scrapy import signals
 from scrapy.exceptions import DontCloseSpider
 from scrapy.spiders import Spider
@@ -18,8 +19,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from azure.cosmos import CosmosClient, PartitionKey
 
-import logging
-logging.getLogger('azure').setLevel(logging.CRITICAL)
+# import logging
+# logging.getLogger('azure').setLevel(logging.DEBUG)
 
 class CosmosDBSpiderMixin(object):
 
@@ -70,9 +71,16 @@ class CosmosDBSpiderMixin(object):
         :rtype: scrapy.Request or None
         """
         # query = "SELECT TOP 1 * FROM c WHERE c.processed = false"
-        query = "SELECT TOP 1 * FROM c WHERE c.processed = true OR NOT IS_DEFINED(c.followers)"
-        records = list(self.container.query_items(query=query, enable_cross_partition_query=True))
-        
+        query = "SELECT TOP 1 * FROM c WHERE IS_DEFINED(c.links) and NOT IS_DEFINED(c.followers)"
+        try:
+            records = list(self.container.query_items(
+                query=query,
+                enable_cross_partition_query=True))
+        except CosmosHttpResponseError as e:
+            print("Error fetching conversation:", e)
+            records = None
+        # records = list(self.container.query_items(query=query, enable_cross_partition_query=True))
+
         if not records:
             return None
         
@@ -83,10 +91,11 @@ class CosmosDBSpiderMixin(object):
             return None
         
         # Mark the record as processed
-        record['processed'] = True
-        self.container.upsert_item(record)
+        if not record['processed']:
+            record['processed'] = True
+            self.container.upsert_item(record)
         
-        output =  scrapy.Request(
+        output = scrapy.Request(
                     url=url,
                     callback=self.parse,
                 )
@@ -116,25 +125,31 @@ class CosmosDBSpiderMixin(object):
         self.schedule_next_request()
 
     def parse(self, response):
+        if response.status == 404:
+            print(f"{bcolors.FAIL}404 Error: {response.url}{bcolors.ESCAPE}")
+            item_id = hashlib.sha256(response.url.encode()).hexdigest()
+            self.container.delete_item(item=item_id, partition_key="first")
+            return
         item = EventItem()
         item['event_link'] = response.url
+        print(f"{bcolors.OKGREEN}URL: {item['event_link']}{bcolors.ESCAPE}")
 
         self.driver.get(response.url)
         wait = WebDriverWait(self.driver, 10)
-        try:
-            # press button 1
-            button1_text = 'View event'
-            button1 = self.driver.find_element(By.XPATH, f"//button[text()='{button1_text}']")
-            button1.click()
-            # press button 2
-            button2_text = 'View all event details'
-            button2 = self.driver.find_element(By.XPATH, f"//button[text()='{button2_text}']")
-            button2.click()
-        except:
-            pass
-        wait.until(
-                    EC.presence_of_element_located((By.XPATH, "//span[contains(@class, 'organizer-stats__highlight')]"))
-                    )
+        # try:
+        #     # press button 1
+        #     button1_text = 'View event'
+        #     button1 = self.driver.find_element(By.XPATH, f"//button[text()='{button1_text}']")
+        #     button1.click()
+        #     # press button 2
+        #     button2_text = 'View all event details'
+        #     button2 = self.driver.find_element(By.XPATH, f"//button[text()='{button2_text}']")
+        #     button2.click()
+        # except:
+        #     pass
+        # wait.until(
+        #     EC.presence_of_element_located((By.XPATH, "//strong[contains(@class, 'organizer-listing-info-variant-b__name-link')]"))
+        # )
         body = self.driver.page_source
         response = Selector(text=body)
         
@@ -147,7 +162,8 @@ class CosmosDBSpiderMixin(object):
         item['followers'] = response.xpath("//span[contains(@class, 'organizer-stats__highlight')]//strong/text()").get()
         item["id"] = hashlib.sha256(item["event_link"].encode()).hexdigest()
         # self.azure_cosmos_output.create_conversation(dict(item))
-        self.container.upsert_item(item)
+        if item:
+            self.container.upsert_item(item)
         return item
 
 

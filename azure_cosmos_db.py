@@ -117,11 +117,21 @@ if __name__ == "__main__":
     azure_cosmos.DATABASE_ID, azure_cosmos.CONTAINER_NAME = "Scraper", "eventBrite_events"
     azure_cosmos.container = azure_cosmos.initialize_cosmosdb()
     # print(azure_cosmos.fetch_one_record())
-    for url in urls:
-        print(url)
-        data = {
-            "id": hashlib.sha256(url.encode()).hexdigest(),
-            "url": url,
-            "processed": False
-        }
-        azure_cosmos.create_conversation(conversation_data=data)
+    # for url in urls:
+    #     print(url)
+    #     data = {
+    #         "id": hashlib.sha256(url.encode()).hexdigest(),
+    #         "url": url,
+    #         "processed": False
+    #     }
+    #     azure_cosmos.create_conversation(conversation_data=data)
+    query = "SELECT * FROM c WHERE c.processed = true OR NOT IS_DEFINED(c.links)"
+    try:
+        items = list(azure_cosmos.container.query_items(
+            query=query,
+            enable_cross_partition_query=True))
+    except CosmosHttpResponseError as e:
+        print("Error fetching conversation:", e)
+    for item in items:
+        item["links"] = "first"
+        azure_cosmos.container.upsert_item(item)
