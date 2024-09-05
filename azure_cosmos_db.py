@@ -106,13 +106,16 @@ class AzureCosmos:
         
 
 if __name__ == "__main__":
-    df = pd.read_csv("data/inputs/Dating events - Sheet2.csv")
-    df = df.sample(1)
+    df = pd.read_csv("data/inputs/Dating events - Sheet4.csv")
+    # df = pd.read_excel("data/inputs/links.xlsx")
+    # df = df.head(2)
     urls = df["Event_link"].to_list()
+    # urls = df["links"].to_list()
 
     azure_cosmos = AzureCosmos()
+    # azure_cosmos.DATABASE_ID, azure_cosmos.CONTAINER_NAME = "Scraper", "eventBrite_links"
     azure_cosmos.DATABASE_ID, azure_cosmos.CONTAINER_NAME = "Scraper", "eventBrite_events"
-    # azure_cosmos.DATABASE_ID, azure_cosmos.CONTAINER_NAME = "Scraper", "eventBrite_outputs"
+    azure_cosmos.container = azure_cosmos.initialize_cosmosdb()
     # print(azure_cosmos.fetch_one_record())
     for url in urls:
         print(url)

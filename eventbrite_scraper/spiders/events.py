@@ -53,7 +53,7 @@ class CosmosDBSpiderMixin(object):
         self.cosmos_db_uri = settings.get('COSMOS_DB_URI', 'your_cosmos_db_uri')
         self.cosmos_db_key = settings.get('COSMOS_DB_KEY', 'your_cosmos_db_key')
         self.cosmos_db_database = settings.get('COSMOS_DB_DATABASE', 'your_database')
-        self.cosmos_db_container_name = settings.get('COSMOS_DB_CONTAINER', 'your_container')
+        self.cosmos_db_container_name = "eventBrite_events"
 
         self.client = CosmosClient(self.cosmos_db_uri, self.cosmos_db_key)
         self.database = self.client.get_database_client(self.cosmos_db_database)
@@ -69,7 +69,6 @@ class CosmosDBSpiderMixin(object):
 
         :rtype: scrapy.Request or None
         """
-        # time.sleep(1)
         query = "SELECT TOP 1 * FROM c WHERE c.processed = false"
         records = list(self.container.query_items(query=query, enable_cross_partition_query=True))
         
