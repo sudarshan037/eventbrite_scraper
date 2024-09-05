@@ -65,7 +65,6 @@ class AzureCosmos:
         conversation_id = conversation_data["id"]
         existing_conversation = self.fetch_conversation(conversation_id)
 
-        print(f"existing_conversation: {existing_conversation}")
         if existing_conversation:
             print(f"[INFO] Record already exists in {self.CONTAINER_NAME}, skipping insertion.")
             return False
@@ -108,7 +107,7 @@ class AzureCosmos:
 
 if __name__ == "__main__":
     df = pd.read_csv("data/inputs/Dating events - Sheet2.csv")
-    df = df.sample(2)
+    df = df.sample(1)
     urls = df["Event_link"].to_list()
 
     azure_cosmos = AzureCosmos()
@@ -116,6 +115,7 @@ if __name__ == "__main__":
     # azure_cosmos.DATABASE_ID, azure_cosmos.CONTAINER_NAME = "Scraper", "eventBrite_outputs"
     # print(azure_cosmos.fetch_one_record())
     for url in urls:
+        print(url)
         data = {
             "id": hashlib.sha256(url.encode()).hexdigest(),
             "url": url,

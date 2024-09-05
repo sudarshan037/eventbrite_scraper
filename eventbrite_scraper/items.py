@@ -12,6 +12,7 @@ class EventbriteScraperItem(scrapy.Item):
     pass
 
 class EventItem(scrapy.Item):
+    id = scrapy.Field()
     event_link = scrapy.Field()
     event_name = scrapy.Field()
     date = scrapy.Field()

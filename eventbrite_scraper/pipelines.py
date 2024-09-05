@@ -7,7 +7,6 @@
 # useful for handling different item types with a single interface
 from itemadapter import ItemAdapter
 import pandas as pd
-import hashlib
 from datetime import datetime
 from eventbrite_scraper.utils import bcolors
 from azure_cosmos_db import AzureCosmos
@@ -85,7 +84,4 @@ class CosmosUploadPipeline:
 
     def process_item(self, item, spider):
         self.items.append(dict(item))
-        item = dict(item)
-        item["id"] = hashlib.sha256(item["event_link"].encode()).hexdigest()
-        self.azure_cosmos.create_conversation(item)
         return item

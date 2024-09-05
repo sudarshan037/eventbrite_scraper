@@ -1,10 +1,10 @@
-import os
-import glob
 import time
+import hashlib
 import scrapy
-import pandas as pd
-from azure_cosmos_db import AzureCosmos
-from scrapy.exceptions import CloseSpider
+from scrapy import signals
+from scrapy.exceptions import DontCloseSpider
+from scrapy.spiders import Spider
+
 from eventbrite_scraper.items import EventItem
 from eventbrite_scraper.utils import bcolors
 from scrapy.selector import Selector
@@ -15,74 +15,109 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
-# from selenium.webdriver.firefox.service import Service
-# from selenium.webdriver.firefox.options import Options
-# from webdriver_manager.firefox import GeckoDriverManager
+
+from azure.cosmos import CosmosClient, PartitionKey
 
 import logging
-logger = logging.getLogger(__name__)
+logging.getLogger('azure').setLevel(logging.CRITICAL)
 
-# Suppress logging from selenium and urllib3
-logging.getLogger('selenium.webdriver.remote.remote_connection').setLevel(logging.WARNING)
-logging.getLogger('urllib3.connectionpool').setLevel(logging.WARNING)
-logging.getLogger('scrapy.utils.log').setLevel(logging.WARNING)
-logging.getLogger('scrapy.middleware').setLevel(logging.WARNING)
-logging.getLogger('scrapy.extensions.telnet').setLevel(logging.WARNING)
-logging.getLogger('WDM').setLevel(logging.WARNING)
+class CosmosDBSpiderMixin(object):
 
-class EventsSpider(scrapy.Spider):
-    name = "events"
-    url_counter = 0
+    """
+    Mixin class to implement reading records from a Cosmos DB container.
 
-    def __init__(self, *args, **kwargs):
-        super(EventsSpider, self).__init__(*args, **kwargs)
+    :type cosmos_db_container: str
+    """
+    cosmos_db_container = ""
 
-        self.azure_cosmos = AzureCosmos()
-        self.no_record_count = 0
-        self.max_no_record_wait = 2
+    def process_cosmos_db_record(self, record):
+        """"
+        Tell this spider how to extract URLs from a Cosmos DB record.
 
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")  # Ensure GUI is off
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        :param record: A Cosmos DB record (document)
+        :type record: dict
+        :rtype: str or None
+        """
+        if not record:
+            return None
+        return record.get('url')
 
-        # firefox_options = Options()
-        # firefox_options.add_argument("--headless")  # Ensure GUI is off
-        # firefox_options.add_argument("--no-sandbox")
-        # firefox_options.add_argument("--disable-dev-shm-usage")
-        # self.driver = webdriver.Firefox(service=Service(GeckoDriverManager().install()), options=firefox_options)
+    def setup_cosmos_db(self, settings):
+        """Setup Cosmos DB connection and idle signal.
 
+        This should be called after the spider has set its crawler object.
 
-    def start_requests(self):
-        # df = pd.read_csv("data/inputs/Dating events - Sheet2.csv")
-        # urls = df["Event_link"].to_list()
-        while self.no_record_count < self.max_no_record_wait:
-            items = self.azure_cosmos.fetch_one_record()
-            # urls = [
-            #     "https://www.eventbrite.com/e/oregon-wedding-day-best-of-2024-awards-gala-tickets-881507160647?aff=ebdssbdestsearch",
-            #     # "https://www.eventbrite.com/e/bradenton-speed-dating-for-singles-age-30-49-at-motorworks-brewing-tickets-1004871346247?aff=ebdssbdestsearch",
-            # ]
-            if items:
-                self.no_record_count = 0
-                for item in items:
-                    yield scrapy.Request(
-                        url=item["url"],
-                        callback=self.parse,
-                    )
-                    self.azure_cosmos.pop_one_record(item)
-            else:
-                self.no_record_count += 1
-                print(f"No new records found. Attempt {self.no_record_count}. Waiting for new records...")
-                time.sleep(10)  # Wait for 10 seconds before checking again
+        :param settings: The current Scrapy settings being used
+        :type settings: scrapy.settings.Settings
+        """
+        self.cosmos_db_uri = settings.get('COSMOS_DB_URI', 'your_cosmos_db_uri')
+        self.cosmos_db_key = settings.get('COSMOS_DB_KEY', 'your_cosmos_db_key')
+        self.cosmos_db_database = settings.get('COSMOS_DB_DATABASE', 'your_database')
+        self.cosmos_db_container_name = settings.get('COSMOS_DB_CONTAINER', 'your_container')
 
-        print("Max waiting time reached without new records. Closing spider.")
-        raise CloseSpider("No new records found after max attempts.")
+        self.client = CosmosClient(self.cosmos_db_uri, self.cosmos_db_key)
+        self.database = self.client.get_database_client(self.cosmos_db_database)
+        self.container = self.database.get_container_client(self.cosmos_db_container_name)
+
+        self.crawler.signals.connect(self.spider_idle, signal=signals.spider_idle)
+        self.crawler.signals.connect(self.item_scraped, signal=signals.item_scraped)
+        print(f"Reading records from Cosmos DB container '{self.cosmos_db_container_name}'")
+
+    def next_request(self):
+        """
+        Returns a request to be scheduled.
+
+        :rtype: scrapy.Request or None
+        """
+        # time.sleep(1)
+        query = "SELECT TOP 1 * FROM c WHERE c.processed = false"
+        records = list(self.container.query_items(query=query, enable_cross_partition_query=True))
+        
+        if not records:
+            return None
+        
+        record = records[0]
+        url = self.process_cosmos_db_record(record)
+        
+        if not url:
+            return None
+        
+        # Mark the record as processed
+        record['processed'] = True
+        self.container.upsert_item(record)
+        
+        output =  scrapy.Request(
+                    url=url,
+                    callback=self.parse,
+                )
+        return output
+
+    def schedule_next_request(self):
+        """Schedules a request if available"""
+        req = self.next_request()
+        if req:
+            self.crawler.engine.crawl(req)
+
+    def spider_idle(self):
+        """Schedules a request if available, otherwise waits."""
+        self.schedule_next_request()
+        
+        req = self.next_request()
+        if not req:
+            print("No records found, waiting for 60 seconds before trying again...")
+            time.sleep(60)
+        else:
+            self.crawler.engine.crawl(req)
+
+        raise DontCloseSpider
+
+    def item_scraped(self, *args, **kwargs):
+        """Avoids waiting for the spider to idle before scheduling the next request"""
+        self.schedule_next_request()
 
     def parse(self, response):
         item = EventItem()
         item['event_link'] = response.url
-        print(f"{bcolors.OKGREEN}{self.url_counter} URL: {item['event_link']}{bcolors.ESCAPE}")
 
         self.driver.get(response.url)
         wait = WebDriverWait(self.driver, 10)
@@ -103,18 +138,51 @@ class EventsSpider(scrapy.Spider):
         body = self.driver.page_source
         response = Selector(text=body)
         
-        self.url_counter += 1
-        
         item['event_name'] = response.xpath("//h1[contains(@class, 'event-title')]/text()").get()
         item['date'] = response.xpath("//time[contains(@class, 'start-date')]/text()").get()
-        item['price'] = response.xpath("//div[contains(@class, 'conversation-bar-container')]/text()").get()
-        # item['price'] = response.css('#root > div > div > div.eds-structure__body > div > div > div > div.eds-fixed-bottom-bar-layout__content > div > main > div.event-listing.event-listing--has-image > div.event-details.event-details--has-hero-section > div.event-details__wrapper > div.Layout-module__layout___1vM08 > div.Layout-module__module___2eUcs.Layout-module__aside___2Tdmd > div > div.conversion-bar-bordered > div.conversion-bar.conversion-bar--checkout-opener > div.conversion-bar__body > div::text').get()
+        # item['price'] = response.xpath("//div[contains(@class, 'conversation-bar-container')]/text()").get()
+        item['price'] = response.xpath("//div[@class='conversion-bar__panel-info']/text()").get()
         item['location'] = response.xpath("//div[contains(@class, 'location-info__address')]/text()").get()
         item['organiser_name'] = response.xpath("//strong[contains(@class, 'organizer-listing-info-variant-b__name-link')]/text()").get()
-        item['followers'] = response.xpath("//span[contains(@class, 'organizer-stats__highlight')]/text()").get()
-        print(item)
-        yield item
+        item['followers'] = response.xpath("//span[contains(@class, 'organizer-stats__highlight')]//strong/text()").get()
+        item["id"] = hashlib.sha256(item["event_link"].encode()).hexdigest()
+        # self.azure_cosmos_output.create_conversation(dict(item))
+        self.container.upsert_item(item)
+        return item
 
-    def close(self, reason):
+
+class EventsSpider(CosmosDBSpiderMixin, Spider):
+    name = "events"
+
+    """
+    Spider that reads records from a Cosmos DB container when idle.
+
+    This spider will exit only if stopped, otherwise it keeps
+    listening to records in the given container.
+
+    Specify the container to listen to by setting the spider's `cosmos_db_container`.
+
+    Records are assumed to contain URLs. To do custom
+    processing of Cosmos DB records, override the spider's `process_cosmos_db_record`
+    method.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super(EventsSpider, self).__init__(*args, **kwargs)
+
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")  # Ensure GUI is off
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+
+
+    def _set_crawler(self, crawler):
+        """
+        :type crawler: scrapy.crawler.Crawler
+        """
+        super(EventsSpider, self)._set_crawler(crawler)
+        self.setup_cosmos_db(crawler.settings)
+
+    def closed(self, reason):
         self.driver.quit()
-        print(f"Spider closed. Reason: {reason}")

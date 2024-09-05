@@ -90,8 +90,8 @@ DOWNLOAD_DELAY = 0
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-    # "eventbrite_scraper.pipelines.ExcelExportPipeline": 300,
-    "eventbrite_scraper.pipelines.CosmosUploadPipeline": 300,
+    "eventbrite_scraper.pipelines.ExcelExportPipeline": 300,
+    # "eventbrite_scraper.pipelines.CosmosUploadPipeline": 300,
     # "eventbrite_scraper.pipelines.EventbriteScraperPipeline": 300,
 }
 
@@ -124,3 +124,8 @@ FEED_EXPORT_ENCODING = "utf-8"
 DOWNLOADER_MIDDLEWARES = {
     'scrapy_selenium.SeleniumMiddleware': 800
 }
+
+COSMOS_DB_URI = "https://cosmos-scraper.documents.azure.com:443/"
+COSMOS_DB_KEY = "bBgVEeSnEQaSss88e8zZU5pjpiVzPjba5qpe6alFqU548KcW2eMkCeUf7J99RWVUPw6ASV32W8pGACDb5ZhxrA=="
+COSMOS_DB_DATABASE = "Scraper"
+COSMOS_DB_CONTAINER = "eventBrite_events"
