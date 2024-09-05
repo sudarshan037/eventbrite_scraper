@@ -41,7 +41,7 @@ class AzureCosmos:
     def fetch_one_record(self):
         try:
             item = list(self.container.query_items(
-                query=f'SELECT TOP 1 * FROM c WHERE c.processed != true',
+                query=f'SELECT TOP 1 * FROM c WHERE c.processed = true OR NOT IS_DEFINED(c.followers)',
                 enable_cross_partition_query=True))
             return item
         except CosmosHttpResponseError as e:
