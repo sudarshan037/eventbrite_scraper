@@ -161,6 +161,7 @@ class CosmosDBSpiderMixin(object):
         item['organiser_name'] = response.xpath("//strong[contains(@class, 'organizer-listing-info-variant-b__name-link')]/text()").get()
         item['followers'] = response.xpath("//span[contains(@class, 'organizer-stats__highlight')]//strong/text()").get()
         item["id"] = hashlib.sha256(item["event_link"].encode()).hexdigest()
+        item["links"] = "first"
         # self.azure_cosmos_output.create_conversation(dict(item))
         if item:
             self.container.upsert_item(item)

@@ -52,7 +52,7 @@ ROBOTSTXT_OBEY = True
 # Configure a delay for requests for the same website (default: 0)
 # See https://docs.scrapy.org/en/latest/topics/settings.html#download-delay
 # See also autothrottle settings and docs
-DOWNLOAD_DELAY = 2
+DOWNLOAD_DELAY = 3
 AUTOTHROTTLE_ENABLED = True
 AUTOTHROTTLE_START_DELAY = 5  # Initial download delay
 AUTOTHROTTLE_MAX_DELAY = 60   # Maximum download delay
@@ -136,3 +136,6 @@ COSMOS_DB_URI = "https://cosmos-scraper.documents.azure.com:443/"
 COSMOS_DB_KEY = "bBgVEeSnEQaSss88e8zZU5pjpiVzPjba5qpe6alFqU548KcW2eMkCeUf7J99RWVUPw6ASV32W8pGACDb5ZhxrA=="
 COSMOS_DB_DATABASE = "Scraper"
 COSMOS_DB_CONTAINER = "eventBrite_events"
+
+RETRY_HTTP_CODES = [429]
+RETRY_TIMES = 3
