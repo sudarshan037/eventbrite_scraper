@@ -69,7 +69,8 @@ class CosmosDBSpiderMixin(object):
 
         :rtype: scrapy.Request or None
         """
-        query = "SELECT TOP 1 * FROM c WHERE c.processed = false"
+        # query = "SELECT TOP 1 * FROM c WHERE c.processed = false"
+        query = "SELECT TOP 1 * FROM c WHERE c.processed = true OR NOT IS_DEFINED(c.followers)"
         records = list(self.container.query_items(query=query, enable_cross_partition_query=True))
         
         if not records:
