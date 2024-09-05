@@ -24,6 +24,9 @@ import logging
 logging.getLogger('azure').setLevel(logging.CRITICAL)
 
 class CosmosDBSpiderMixin(object):
+    def __init__(self):
+        self.offset_flag = True
+        self.max_offset = 100
 
     """
     Mixin class to implement reading records from a Cosmos DB container.
@@ -72,7 +75,12 @@ class CosmosDBSpiderMixin(object):
         :rtype: scrapy.Request or None
         """
         # query = "SELECT TOP 1 * FROM c WHERE c.processed = false"
-        random_offset = random.randrange(0, 10)
+        if not self.offset_flag:
+            self.offset_flag = True
+            self.max_offset = self.max_offset//2
+
+        random_offset = random.randrange(0, self.max_offset)
+            
         query = f"SELECT * FROM c WHERE IS_DEFINED(c.links) and NOT IS_DEFINED(c.followers) OFFSET {random_offset} LIMIT 1"
         try:
             records = list(self.container.query_items(
@@ -135,6 +143,7 @@ class CosmosDBSpiderMixin(object):
         
         elif response.status == 429:
             retry_after = int(response.headers.get('Retry-After', 60))
+            retry_after += 10
             print(f"{bcolors.FAIL}Rate limited. Retrying after {retry_after} seconds.{bcolors.ESCAPE}")
             time.sleep(retry_after)
         item = EventItem()
