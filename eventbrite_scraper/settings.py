@@ -12,7 +12,7 @@ BOT_NAME = "eventbrite_scraper"
 SPIDER_MODULES = ["eventbrite_scraper.spiders"]
 NEWSPIDER_MODULE = "eventbrite_scraper.spiders"
 
-LOG_LEVEL = "DEBUG"
+LOG_LEVEL = "INFO"
 
 LOGGING = {
     'version': 1,

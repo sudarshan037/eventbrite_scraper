@@ -20,8 +20,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from azure.cosmos import CosmosClient, PartitionKey
 
-# import logging
-# logging.getLogger('azure').setLevel(logging.DEBUG)
+import logging
+logging.getLogger('azure').setLevel(logging.CRITICAL)
 
 class CosmosDBSpiderMixin(object):
 
@@ -170,6 +170,7 @@ class CosmosDBSpiderMixin(object):
         item["id"] = hashlib.sha256(item["event_link"].encode()).hexdigest()
         item["links"] = "first"
         # self.azure_cosmos_output.create_conversation(dict(item))
+        print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
         if item:
             self.container.upsert_item(item)
         return item
