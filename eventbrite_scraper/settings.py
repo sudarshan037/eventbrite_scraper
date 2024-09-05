@@ -44,7 +44,7 @@ FEEDS = {
 #USER_AGENT = "eventbrite_scraper (+http://www.yourdomain.com)"
 
 # Obey robots.txt rules
-ROBOTSTXT_OBEY = True
+ROBOTSTXT_OBEY = False
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
 #CONCURRENT_REQUESTS = 32
@@ -62,7 +62,7 @@ CONCURRENT_REQUESTS_PER_DOMAIN = 2
 CONCURRENT_REQUESTS_PER_IP = 2
 
 DUPEFILTER_CLASS = 'scrapy.dupefilters.BaseDupeFilter'
-HTTPERROR_ALLOWED_CODES = [404]
+HTTPERROR_ALLOWED_CODES = [404, 429]
 
 # Disable cookies (enabled by default)
 #COOKIES_ENABLED = False
@@ -138,4 +138,4 @@ COSMOS_DB_DATABASE = "Scraper"
 COSMOS_DB_CONTAINER = "eventBrite_events"
 
 RETRY_HTTP_CODES = [429]
-RETRY_TIMES = 3
+RETRY_TIMES = 2

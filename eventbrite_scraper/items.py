@@ -20,6 +20,7 @@ class EventItem(scrapy.Item):
     location = scrapy.Field()
     organiser_name = scrapy.Field()
     followers = scrapy.Field()
+    links = scrapy.Field()
 
 class EventLink(scrapy.Item):
     link_name = scrapy.Field()

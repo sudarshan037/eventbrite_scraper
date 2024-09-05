@@ -130,6 +130,11 @@ class CosmosDBSpiderMixin(object):
             item_id = hashlib.sha256(response.url.encode()).hexdigest()
             self.container.delete_item(item=item_id, partition_key="first")
             return
+        
+        elif response.status == 429:
+            retry_after = int(response.headers.get('Retry-After', 60))
+            print(f"{bcolors.FAIL}Rate limited. Retrying after {retry_after} seconds.{bcolors.ESCAPE}")
+            time.sleep(retry_after)
         item = EventItem()
         item['event_link'] = response.url
         print(f"{bcolors.OKGREEN}URL: {item['event_link']}{bcolors.ESCAPE}")
