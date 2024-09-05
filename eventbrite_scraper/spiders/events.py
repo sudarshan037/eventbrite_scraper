@@ -26,7 +26,8 @@ logging.getLogger('azure').setLevel(logging.CRITICAL)
 class CosmosDBSpiderMixin(object):
     def __init__(self):
         self.offset_flag = True
-        self.max_offset = 100
+        self.max_offset = 32
+        print(f"max_offset = {self.max_offset}")
 
     """
     Mixin class to implement reading records from a Cosmos DB container.
@@ -78,9 +79,10 @@ class CosmosDBSpiderMixin(object):
         if not self.offset_flag:
             self.offset_flag = True
             self.max_offset = self.max_offset//2
+            print(f"max_offset = {self.max_offset}")
 
         random_offset = random.randrange(0, self.max_offset)
-            
+        print(f"random offset: {random_offset}")
         query = f"SELECT * FROM c WHERE IS_DEFINED(c.links) and NOT IS_DEFINED(c.followers) OFFSET {random_offset} LIMIT 1"
         try:
             records = list(self.container.query_items(
@@ -124,7 +126,10 @@ class CosmosDBSpiderMixin(object):
         req = self.next_request()
         if not req:
             print("No records found, waiting for 60 seconds before trying again...")
-            time.sleep(60)
+            if self.max_offset <= 1:
+                time.sleep(60)
+            else:
+                self.offset_flag = False
         else:
             self.crawler.engine.crawl(req)
 
