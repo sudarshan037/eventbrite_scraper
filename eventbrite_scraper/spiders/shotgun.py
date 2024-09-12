@@ -209,8 +209,8 @@ class CosmosDBSpiderMixin(object):
         item["sheet_name"] = response.meta.get('sheet_name')
         # self.driver.quit()
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
-        # if item:
-        #     self.container.upsert_item(item)
+        if item:
+            self.container.upsert_item(item)
         return item
         
 
