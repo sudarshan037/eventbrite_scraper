@@ -98,7 +98,7 @@ class CosmosDBSpiderMixin(object):
         except CosmosHttpResponseError as e:
             print("Error fetching conversation:", e)
             records = None
-        records = [{"url": "http://shotgun.live/venues/badaboum-club"}]
+        # records = [{"url": "http://shotgun.live/venues/badaboum-club"}]
 
         if not records:
             return None
@@ -154,28 +154,28 @@ class CosmosDBSpiderMixin(object):
         try:
         # Check for the "Upcoming Events" section
             upcoming_events_header = self.driver.find_element(By.XPATH, "//h2[text()='Upcoming Events']")
-            print("Found 'Upcoming Events' section")
+            print(f"{bcolors.HEADER}Found 'Upcoming Events' section{bcolors.ESCAPE}")
             
             # Extract the first link under "Upcoming Events"
             first_upcoming_event_link = self.driver.find_element(By.XPATH, "(//h2[text()='Upcoming Events']/following-sibling::div//a)[1]")
-            print(f"First 'Upcoming Event' link: {first_upcoming_event_link.get_attribute('href')}")
+            print(f"{bcolors.HEADER}First 'Upcoming Event' link: {first_upcoming_event_link.get_attribute('href')}{bcolors.ESCAPE}")
             return first_upcoming_event_link.get_attribute('href')
         
         except Exception as e:
-            print(f"Upcoming Events section not found or no link present: {str(e)}")
+            print(f"{bcolors.HEADER}Upcoming Events section not found or no link present: {str(e)}{bcolors.ESCAPE}")
 
         try:
         # Check for the "Past Events" section if "Upcoming Events" wasn't found
             past_events_header = self.driver.find_element(By.XPATH, "//h2[text()='Past Events']")
-            print("Found 'Past Events' section")
+            print(f"{bcolors.HEADER}Found 'Past Events' section{bcolors.ESCAPE}")
             
             # Extract the first link under "Past Events"
             first_past_event_link = self.driver.find_element(By.XPATH, "(//h2[text()='Past Events']/following-sibling::div//a)[1]")
-            print(f"First 'Past Event' link: {first_past_event_link.get_attribute('href')}")
+            print(f"{bcolors.HEADER}First 'Past Event' link: {first_past_event_link.get_attribute('href')}{bcolors.ESCAPE}")
             return first_past_event_link.get_attribute('href')
         
         except Exception as e:
-            print(f"Past Events section not found or no link present: {str(e)}")
+            print(f"{bcolors.HEADER}Past Events section not found or no link present: {str(e)}{bcolors.ESCAPE}")
     
         return None
 
@@ -191,10 +191,11 @@ class CosmosDBSpiderMixin(object):
             retry_after += 10
             print(f"{bcolors.FAIL}Rate limited. Retrying after {retry_after} seconds.{bcolors.ESCAPE}")
             time.sleep(retry_after)
+
         item = Shotgun()
         item['event_link'] = response.url
-        # item["url"] = response.url
         print(f"{bcolors.OKGREEN}URL: {item['event_link']}{bcolors.ESCAPE}")
+
         try:
             self.driver.get(response.url)
             wait = WebDriverWait(self.driver, 10)
@@ -203,12 +204,13 @@ class CosmosDBSpiderMixin(object):
             item['event_name'] = self.extract_first_link_by_event_type()
         except Exception as e:
             print(f"{bcolors.FAIL}Error processing {response.url}: {str(e)}{bcolors.ESCAPE}")
+            return None
         item["processed"] = True
         item["sheet_name"] = response.meta.get('sheet_name')
-        self.driver.quit()
+        # self.driver.quit()
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
-        if item:
-            self.container.upsert_item(item)
+        # if item:
+        #     self.container.upsert_item(item)
         return item
         
 
@@ -245,13 +247,13 @@ class EventsSpider(CosmosDBSpiderMixin, Spider):
         super(EventsSpider, self)._set_crawler(crawler)
         self.setup_cosmos_db(crawler.settings)
         
-    # def start_requests(self):
-    #     """
-    #     Override start_requests to use the custom method for generating initial requests.
-    #     """
-    #     req = self.next_request()
-    #     if req:
-    #         yield req
+    def start_requests(self):
+        """
+        Override start_requests to use the custom method for generating initial requests.
+        """
+        req = self.next_request()
+        if req:
+            yield req
 
     def closed(self, reason):
         self.driver.quit()
