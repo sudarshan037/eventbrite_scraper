@@ -7,7 +7,7 @@ from scrapy import signals
 from scrapy.exceptions import DontCloseSpider
 from scrapy.spiders import Spider
 
-from eventbrite_scraper.items import EventItem
+from eventbrite_scraper.items import DiceLink
 from eventbrite_scraper.utils import bcolors
 from scrapy.selector import Selector
 from selenium import webdriver
@@ -66,7 +66,7 @@ class CosmosDBSpiderMixin(object):
         self.cosmos_db_uri = settings.get('COSMOS_DB_URI', 'your_cosmos_db_uri')
         self.cosmos_db_key = settings.get('COSMOS_DB_KEY', 'your_cosmos_db_key')
         self.cosmos_db_database = settings.get('COSMOS_DB_DATABASE', 'your_database')
-        self.cosmos_db_container_name = "eventBrite_events"
+        self.cosmos_db_container_name = "dice_events"
 
         self.client = CosmosClient(self.cosmos_db_uri, self.cosmos_db_key)
         self.database = self.client.get_database_client(self.cosmos_db_database)
@@ -90,7 +90,7 @@ class CosmosDBSpiderMixin(object):
 
         random_offset = random.randrange(0, self.max_offset)
         print(f"random offset: {random_offset}")
-        query = f"SELECT * FROM c WHERE IS_DEFINED(c.links) and NOT IS_DEFINED(c.followers) OFFSET {random_offset} LIMIT 1"
+        query = f"SELECT * FROM c WHERE c.processed = false OFFSET {random_offset} LIMIT 1"
         try:
             records = list(self.container.query_items(
                 query=query,
@@ -98,8 +98,8 @@ class CosmosDBSpiderMixin(object):
         except CosmosHttpResponseError as e:
             print("Error fetching conversation:", e)
             records = None
-        # records = list(self.container.query_items(query=query, enable_cross_partition_query=True))
-
+        # records = [{"url": "https://dice.fm/partner/announcement-3-band-link/event/kr3ap-portals-festival-2023-27th-may-earth-london-tickets"}]
+        
         if not records:
             return None
         
@@ -114,7 +114,7 @@ class CosmosDBSpiderMixin(object):
         #     record['processed'] = True
         #     self.container.upsert_item(record)
         
-        output = scrapy.Request(
+        output =  scrapy.Request(
                     url=url,
                     callback=self.parse,
                     headers={
@@ -153,7 +153,7 @@ class CosmosDBSpiderMixin(object):
         if response.status == 404:
             print(f"{bcolors.FAIL}404 Error: {response.url}{bcolors.ESCAPE}")
             item_id = hashlib.sha256(response.url.encode()).hexdigest()
-            self.container.delete_item(item=item_id, partition_key="first")
+            self.container.delete_item(item=item_id, partition_key="url")
             return
         
         elif response.status == 429:
@@ -161,47 +161,31 @@ class CosmosDBSpiderMixin(object):
             retry_after += 10
             print(f"{bcolors.FAIL}Rate limited. Retrying after {retry_after} seconds.{bcolors.ESCAPE}")
             time.sleep(retry_after)
-        item = EventItem()
+        item = DiceLink()
         item['event_link'] = response.url
+        item["url"] = response.url
         print(f"{bcolors.OKGREEN}URL: {item['event_link']}{bcolors.ESCAPE}")
-
-        self.driver.get(response.url)
-        wait = WebDriverWait(self.driver, 10)
-        # try:
-        #     # press button 1
-        #     button1_text = 'View event'
-        #     button1 = self.driver.find_element(By.XPATH, f"//button[text()='{button1_text}']")
-        #     button1.click()
-        #     # press button 2
-        #     button2_text = 'View all event details'
-        #     button2 = self.driver.find_element(By.XPATH, f"//button[text()='{button2_text}']")
-        #     button2.click()
-        # except:
-        #     pass
-        # wait.until(
-        #     EC.presence_of_element_located((By.XPATH, "//strong[contains(@class, 'organizer-listing-info-variant-b__name-link')]"))
-        # )
-        body = self.driver.page_source
-        response = Selector(text=body)
-        
-        item['event_name'] = response.xpath("//h1[contains(@class, 'event-title')]/text()").get()
-        item['date'] = response.xpath("//time[contains(@class, 'start-date')]/text()").get()
-        item['price'] = response.xpath("//div[@class='conversion-bar__panel-info']/text()").get()
-        item['location'] = response.xpath("//div[contains(@class, 'location-info__address')]/text()").get()
-        item['organiser_name'] = response.xpath("//strong[contains(@class, 'organizer-listing-info-variant-b__name-link')]/text()").get()
-        item['followers'] = response.xpath("//span[contains(@class, 'organizer-stats__highlight')]//strong/text()").get()
-        item["id"] = hashlib.sha256(item["event_link"].encode()).hexdigest()
-        item["links"] = "first"
+        try:
+            self.driver.get(response.url)
+            wait = WebDriverWait(self.driver, 10)
+            body = self.driver.page_source
+            selenium_response = Selector(text=body)
+            item['event_name'] = response.xpath("//h1[@class='EventDetailsTitle__Title-sc-8ebcf47a-0 iLdkPz']/text()").get()
+            item['event_date'] = response.xpath("//div[contains(@class, 'EventDetailsBase__Highlight-sc-d40475af-0')]/div/span/text()").get()
+            item['organizer'] = response.xpath("//div[contains(@class, 'EventDetailsBase__Highlight-sc-d40475af-0')]/div/span/text()").get()
+            item['location'] = response.xpath("//div[@class='EventDetailsVenue__Address-sc-42637e02-5 cxsjwk']/span/text()").get()
+        except Exception as e:
+            print(f"{bcolors.FAIL}Error processing {response.url}: {str(e)}{bcolors.ESCAPE}")
         item["processed"] = True
-        # self.azure_cosmos_output.create_conversation(dict(item))
+        self.driver.quit()
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
         if item:
             self.container.upsert_item(item)
         return item
-
+        
 
 class EventsSpider(CosmosDBSpiderMixin, Spider):
-    name = "events"
+    name = "dice"
 
     """
     Spider that reads records from a Cosmos DB container when idle.
@@ -232,6 +216,14 @@ class EventsSpider(CosmosDBSpiderMixin, Spider):
         """
         super(EventsSpider, self)._set_crawler(crawler)
         self.setup_cosmos_db(crawler.settings)
+        
+    # def start_requests(self):
+    #     """
+    #     Override start_requests to use the custom method for generating initial requests.
+    #     """
+    #     req = self.next_request()
+    #     if req:
+    #         yield req
 
     def closed(self, reason):
         self.driver.quit()

@@ -13,6 +13,9 @@ class EventbriteScraperItem(scrapy.Item):
 
 class EventItem(scrapy.Item):
     id = scrapy.Field()
+    links = scrapy.Field()
+    processed = scrapy.Field()
+
     event_link = scrapy.Field()
     event_name = scrapy.Field()
     date = scrapy.Field()
@@ -20,8 +23,31 @@ class EventItem(scrapy.Item):
     location = scrapy.Field()
     organiser_name = scrapy.Field()
     followers = scrapy.Field()
-    links = scrapy.Field()
 
 class EventLink(scrapy.Item):
+    id = scrapy.Field()
+    processed = scrapy.Field()
+
     link_name = scrapy.Field()
     links = scrapy.Field()
+
+class DiceLink(scrapy.Item):
+    id = scrapy.Field()
+    links = scrapy.Field()
+    processed = scrapy.Field()
+
+    url = scrapy.Field()
+    event_link = scrapy.Field()
+    event_name = scrapy.Field()
+    event_date = scrapy.Field()
+    organizer = scrapy.Field()
+    location = scrapy.Field()
+    
+
+class Shotgun(scrapy.Item):
+    id = scrapy.Field()
+    links = scrapy.Field()
+    processed = scrapy.Field()
+
+    event_link = scrapy.Field()
+    event_name = scrapy.Field()

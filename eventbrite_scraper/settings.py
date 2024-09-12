@@ -42,6 +42,7 @@ FEEDS = {
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = "eventbrite_scraper (+http://www.yourdomain.com)"
+USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = False
@@ -62,7 +63,7 @@ CONCURRENT_REQUESTS_PER_DOMAIN = 1
 CONCURRENT_REQUESTS_PER_IP = 1
 
 DUPEFILTER_CLASS = 'scrapy.dupefilters.BaseDupeFilter'
-HTTPERROR_ALLOWED_CODES = [404, 429]
+HTTPERROR_ALLOWED_CODES = [404, 429, 403]
 
 # Disable cookies (enabled by default)
 #COOKIES_ENABLED = False
@@ -137,5 +138,5 @@ COSMOS_DB_KEY = "bBgVEeSnEQaSss88e8zZU5pjpiVzPjba5qpe6alFqU548KcW2eMkCeUf7J99RWV
 COSMOS_DB_DATABASE = "Scraper"
 COSMOS_DB_CONTAINER = "eventBrite_events"
 
-RETRY_HTTP_CODES = [429]
+RETRY_HTTP_CODES = [429, 403]
 RETRY_TIMES = 2

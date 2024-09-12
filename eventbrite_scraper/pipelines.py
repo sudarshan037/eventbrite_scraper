@@ -24,9 +24,9 @@ class ExcelExportPipeline:
         
         timestamp = datetime.now()
         print(f"SPIDER_NAME: {spider.name}")
-        if spider.name == "events":
+        if spider.name in ["events", "dice", "shotgun"]:
             df = pd.DataFrame(self.items)
-            df.to_excel(f"data/outputs/events_{str(timestamp)}.xlsx", index=False)
+            df.to_excel(f"data/outputs/{spider.name}_{str(timestamp)}.xlsx", index=False)
         elif spider.name == "links":
             data =[]
             for item in self.items:
@@ -35,11 +35,7 @@ class ExcelExportPipeline:
                 extracted_links = set(item['links'])
                 for link in extracted_links:
                     data.append({'main_link': link_name, 'Event_link': link})
-            # link_name = self.items[0]['link_name']
-            # print(f"{bcolors.OKCYAN}{link_name}{bcolors.ESCAPE}")
-            # extracted_links = list(set(self.items[0]['links']))
             df = pd.DataFrame(data)
-            # df['main_link'] = link_name
             df.to_excel(f"data/inputs/events_{str(timestamp)}.xlsx", index=False)
         else:
             print("Excel file not saved.")
@@ -62,9 +58,9 @@ class CosmosUploadPipeline:
         
         timestamp = datetime.now()
         print(f"SPIDER_NAME: {spider.name}")
-        if spider.name == "events":
+        if spider.name in ["events", "dice", "shotgun"]:
             df = pd.DataFrame(self.items)
-            df.to_excel(f"data/outputs/events_{str(timestamp)}.xlsx", index=False)
+            df.to_excel(f"data/outputs/{spider.name}_{str(timestamp)}.xlsx", index=False)
         elif spider.name == "links":
             data =[]
             for item in self.items:
@@ -73,11 +69,7 @@ class CosmosUploadPipeline:
                 extracted_links = set(item['links'])
                 for link in extracted_links:
                     data.append({'main_link': link_name, 'Event_link': link})
-            # link_name = self.items[0]['link_name']
-            # print(f"{bcolors.OKCYAN}{link_name}{bcolors.ESCAPE}")
-            # extracted_links = list(set(self.items[0]['links']))
             df = pd.DataFrame(data)
-            # df['main_link'] = link_name
             df.to_excel(f"data/inputs/events_{str(timestamp)}.xlsx", index=False)
         else:
             print("Excel file not saved.")

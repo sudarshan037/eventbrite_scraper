@@ -25,6 +25,17 @@ class AzureCosmos:
             print("Error initializing Cosmos DB:", e)
             return None
         
+    def list_containers(self):
+        try:
+            client = CosmosClient(self.COSMOS_HOST, {'masterKey': self.COSMOS_MASTER_KEY})
+            database = client.get_database_client(self.DATABASE_ID)
+            containers = database.list_containers()
+            container_names = [container['id'] for container in containers]
+            return container_names
+        except Exception as e:
+            print("Error initializing Cosmos DB:", e)
+            return None
+        
     def fetch_conversation(self, conversation_id):
         '''
         Fetches a conversation by ID from the Cosmos DB.
@@ -106,7 +117,7 @@ class AzureCosmos:
         
 
 if __name__ == "__main__":
-    df = pd.read_csv("data/inputs/Dating events - Sheet4.csv")
+    df = pd.read_csv("data/inputs/DICE Analysis 3 - Sheet3.csv")
     # df = pd.read_excel("data/inputs/links.xlsx")
     # df = df.head(2)
     urls = df["Event_link"].to_list()
@@ -114,24 +125,24 @@ if __name__ == "__main__":
 
     azure_cosmos = AzureCosmos()
     # azure_cosmos.DATABASE_ID, azure_cosmos.CONTAINER_NAME = "Scraper", "eventBrite_links"
-    azure_cosmos.DATABASE_ID, azure_cosmos.CONTAINER_NAME = "Scraper", "eventBrite_events"
+    azure_cosmos.DATABASE_ID, azure_cosmos.CONTAINER_NAME = "Scraper", "dice_events"
     azure_cosmos.container = azure_cosmos.initialize_cosmosdb()
-    # print(azure_cosmos.fetch_one_record())
-    # for url in urls:
-    #     print(url)
-    #     data = {
-    #         "id": hashlib.sha256(url.encode()).hexdigest(),
-    #         "url": url,
-    #         "processed": False
-    #     }
-    #     azure_cosmos.create_conversation(conversation_data=data)
-    query = "SELECT * FROM c WHERE c.processed = true OR NOT IS_DEFINED(c.links)"
-    try:
-        items = list(azure_cosmos.container.query_items(
-            query=query,
-            enable_cross_partition_query=True))
-    except CosmosHttpResponseError as e:
-        print("Error fetching conversation:", e)
-    for item in items:
-        item["links"] = "first"
-        azure_cosmos.container.upsert_item(item)
+    print(azure_cosmos.fetch_one_record())
+    for url in urls:
+        print(url)
+        data = {
+            "id": hashlib.sha256(url.encode()).hexdigest(),
+            "url": url,
+            "processed": False
+        }
+        azure_cosmos.create_conversation(conversation_data=data)
+    # query = "SELECT * FROM c WHERE c.processed = true OR NOT IS_DEFINED(c.links)"
+    # try:
+    #     items = list(azure_cosmos.container.query_items(
+    #         query=query,
+    #         enable_cross_partition_query=True))
+    # except CosmosHttpResponseError as e:
+    #     print("Error fetching conversation:", e)
+    # for item in items:
+    #     item["links"] = "first"
+    #     azure_cosmos.container.upsert_item(item)
