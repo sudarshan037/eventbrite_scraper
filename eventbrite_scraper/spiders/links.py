@@ -1,6 +1,7 @@
 import time
 import hashlib
 import scrapy
+from azure.cosmos.exceptions import CosmosHttpResponseError
 from scrapy import signals
 from scrapy.exceptions import DontCloseSpider
 from scrapy.spiders import Spider
@@ -70,8 +71,12 @@ class CosmosDBSpiderMixin(object):
 
         :rtype: scrapy.Request or None
         """
-        query = "SELECT TOP 1 * FROM c WHERE c.processed = false"
-        records = list(self.container.query_items(query=query, enable_cross_partition_query=True))
+        query = "SELECT * FROM c WHERE c.processed = false OFFSET 0 LIMIT 1"
+        try:
+            records = list(self.container.query_items(query=query, enable_cross_partition_query=True))
+        except CosmosHttpResponseError as e:
+            print("Error fetching conversation:", e)
+            records = None
         
         if not records:
             return None
@@ -83,8 +88,8 @@ class CosmosDBSpiderMixin(object):
             return None
         
         # Mark the record as processed
-        record['processed'] = True
-        self.container.upsert_item(record)
+        # record['processed'] = True
+        # self.container.upsert_item(record)
         
         output =  scrapy.Request(
                     url=url,
@@ -140,7 +145,8 @@ class CosmosDBSpiderMixin(object):
                 self.events_container.create_item(data)
             except:
                 print(f"{bcolors.FAIL}Record already exists in cosmos: {url}{bcolors.ESCAPE}")
-        item['links'] = list(set(links))
+        item["id"] = hashlib.sha256(item["link_name"].encode()).hexdigest()
+        item["processed"] = True
         item["sheet_name"] = response.meta.get('sheet_name')
         return item
 

@@ -31,7 +31,6 @@ class EventLink(scrapy.Item):
     sheet_name = scrapy.Field()
 
     link_name = scrapy.Field()
-    links = scrapy.Field()
 
 class DiceLink(scrapy.Item):
     id = scrapy.Field()
