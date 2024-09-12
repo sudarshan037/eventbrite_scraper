@@ -89,6 +89,7 @@ class CosmosDBSpiderMixin(object):
         output =  scrapy.Request(
                     url=url,
                     callback=self.parse,
+                    meta={'sheet_name': record.get("sheet_name", "")}
                 )
         return output
 
@@ -140,6 +141,7 @@ class CosmosDBSpiderMixin(object):
             except:
                 print(f"{bcolors.FAIL}Record already exists in cosmos: {url}{bcolors.ESCAPE}")
         item['links'] = list(set(links))
+        item["sheet_name"] = response.meta.get('sheet_name')
         return item
 
 

@@ -119,7 +119,8 @@ class CosmosDBSpiderMixin(object):
                     callback=self.parse,
                     headers={
                         'User-Agent': random.choice(self.USER_AGENTS)
-                    }
+                    },
+                    meta={'sheet_name': record.get("sheet_name", "")}
                 )
         return output
 
@@ -203,6 +204,7 @@ class CosmosDBSpiderMixin(object):
         except Exception as e:
             print(f"{bcolors.FAIL}Error processing {response.url}: {str(e)}{bcolors.ESCAPE}")
         item["processed"] = True
+        item["sheet_name"] = response.meta.get('sheet_name')
         self.driver.quit()
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
         if item:

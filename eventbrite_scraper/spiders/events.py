@@ -90,7 +90,7 @@ class CosmosDBSpiderMixin(object):
 
         random_offset = random.randrange(0, self.max_offset)
         print(f"random offset: {random_offset}")
-        query = f"SELECT * FROM c WHERE IS_DEFINED(c.links) and NOT IS_DEFINED(c.followers) OFFSET {random_offset} LIMIT 1"
+        query = f"SELECT * FROM c WHERE IS_DEFINED(c.links) and NOT IS_DEFINED(c.followers) and c.processed = false OFFSET {random_offset} LIMIT 1"
         try:
             records = list(self.container.query_items(
                 query=query,
@@ -119,7 +119,8 @@ class CosmosDBSpiderMixin(object):
                     callback=self.parse,
                     headers={
                         'User-Agent': random.choice(self.USER_AGENTS)
-                    }
+                    },
+                    meta={'sheet_name': record.get("sheet_name", "")}
                 )
         return output
 
@@ -193,6 +194,7 @@ class CosmosDBSpiderMixin(object):
         item["id"] = hashlib.sha256(item["event_link"].encode()).hexdigest()
         item["links"] = "first"
         item["processed"] = True
+        item["sheet_name"] = response.meta.get('sheet_name')
         # self.azure_cosmos_output.create_conversation(dict(item))
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
         if item:
