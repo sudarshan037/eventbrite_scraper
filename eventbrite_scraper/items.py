@@ -15,6 +15,7 @@ class EventItem(scrapy.Item):
     id = scrapy.Field()
     links = scrapy.Field()
     processed = scrapy.Field()
+    sheet_name = scrapy.Field()
 
     event_link = scrapy.Field()
     event_name = scrapy.Field()
@@ -27,6 +28,7 @@ class EventItem(scrapy.Item):
 class EventLink(scrapy.Item):
     id = scrapy.Field()
     processed = scrapy.Field()
+    sheet_name = scrapy.Field()
 
     link_name = scrapy.Field()
     links = scrapy.Field()
@@ -35,6 +37,7 @@ class DiceLink(scrapy.Item):
     id = scrapy.Field()
     links = scrapy.Field()
     processed = scrapy.Field()
+    sheet_name = scrapy.Field()
 
     url = scrapy.Field()
     event_link = scrapy.Field()
@@ -48,6 +51,7 @@ class Shotgun(scrapy.Item):
     id = scrapy.Field()
     links = scrapy.Field()
     processed = scrapy.Field()
+    sheet_name = scrapy.Field()
 
     event_link = scrapy.Field()
     event_name = scrapy.Field()
