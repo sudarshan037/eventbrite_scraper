@@ -104,7 +104,6 @@ class CosmosDBSpiderMixin(object):
             return None
         
         record = records[0]
-        print(f"{bcolors.HEADER}PROCESSING: {record}{bcolors.ESCAPE}")
         url = self.process_cosmos_db_record(record)
         
         if not url:
@@ -211,7 +210,6 @@ class CosmosDBSpiderMixin(object):
         # self.driver.quit()
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
         if item:
-            print(f"{bcolors.FAIL}UPLOADING: {item}{bcolors.ESCAPE}")
             self.container.upsert_item(item)
         return item
         

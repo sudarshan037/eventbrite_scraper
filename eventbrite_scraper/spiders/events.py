@@ -90,7 +90,7 @@ class CosmosDBSpiderMixin(object):
 
         random_offset = random.randrange(0, self.max_offset)
         print(f"random offset: {random_offset}")
-        query = f"SELECT * FROM c WHERE IS_DEFINED(c.links) and NOT IS_DEFINED(c.followers) and c.processed = false OFFSET {random_offset} LIMIT 1"
+        query = f"SELECT * FROM c WHERE c.processed = false OFFSET {random_offset} LIMIT 1"
         try:
             records = list(self.container.query_items(
                 query=query,
@@ -154,7 +154,7 @@ class CosmosDBSpiderMixin(object):
         if response.status == 404:
             print(f"{bcolors.FAIL}404 Error: {response.url}{bcolors.ESCAPE}")
             item_id = hashlib.sha256(response.url.encode()).hexdigest()
-            self.container.delete_item(item=item_id, partition_key="first")
+            self.container.delete_item(item=item_id, partition_key="sheet_name")
             return
         
         elif response.status == 429:
@@ -192,7 +192,6 @@ class CosmosDBSpiderMixin(object):
         item['organiser_name'] = response.xpath("//strong[contains(@class, 'organizer-listing-info-variant-b__name-link')]/text()").get()
         item['followers'] = response.xpath("//span[contains(@class, 'organizer-stats__highlight')]//strong/text()").get()
         item["id"] = hashlib.sha256(item["event_link"].encode()).hexdigest()
-        item["links"] = "first"
         item["processed"] = True
         item["sheet_name"] = response.meta.get('sheet_name')
         # self.azure_cosmos_output.create_conversation(dict(item))
