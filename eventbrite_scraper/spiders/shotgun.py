@@ -90,7 +90,7 @@ class CosmosDBSpiderMixin(object):
 
         random_offset = random.randrange(0, self.max_offset)
         print(f"random offset: {random_offset}")
-        query = f"SELECT * FROM c WHERE IS_DEFINED(c.links) and NOT IS_DEFINED(c.followers) OFFSET {random_offset} LIMIT 1"
+        query = f"SELECT * FROM c WHERE c.processed = false AND NOT IS_DEFINED(c.event_name) OFFSET {random_offset} LIMIT 1"
         try:
             records = list(self.container.query_items(
                 query=query,
@@ -104,6 +104,7 @@ class CosmosDBSpiderMixin(object):
             return None
         
         record = records[0]
+        print(f"{bcolors.HEADER}PROCESSING: {record}{bcolors.ESCAPE}")
         url = self.process_cosmos_db_record(record)
         
         if not url:
@@ -177,13 +178,13 @@ class CosmosDBSpiderMixin(object):
         except Exception as e:
             print(f"{bcolors.HEADER}Past Events section not found or no link present: {str(e)}{bcolors.ESCAPE}")
     
-        return None
+        return ""
 
     def parse(self, response):
         if response.status == 404:
             print(f"{bcolors.FAIL}404 Error: {response.url}{bcolors.ESCAPE}")
             item_id = hashlib.sha256(response.url.encode()).hexdigest()
-            self.container.delete_item(item=item_id, partition_key="url")
+            self.container.delete_item(item=item_id, partition_key="sheet_name")
             return
         
         elif response.status == 429:
@@ -204,12 +205,13 @@ class CosmosDBSpiderMixin(object):
             item['event_name'] = self.extract_first_link_by_event_type()
         except Exception as e:
             print(f"{bcolors.FAIL}Error processing {response.url}: {str(e)}{bcolors.ESCAPE}")
-            return None
+        item["id"] = hashlib.sha256(item["event_link"].encode()).hexdigest()
         item["processed"] = True
         item["sheet_name"] = response.meta.get('sheet_name')
         # self.driver.quit()
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
         if item:
+            print(f"{bcolors.FAIL}UPLOADING: {item}{bcolors.ESCAPE}")
             self.container.upsert_item(item)
         return item
         
