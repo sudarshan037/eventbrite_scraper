@@ -105,7 +105,6 @@ class CosmosDBSpiderMixin(object):
         
         record = records[0]
         url = self.process_cosmos_db_record(record)
-        url = "https://www.eventbrite.com/e/holiday-craft-marketplace-2024-tickets-1007617620427?aff=ebdssbdestsearch"
         
         if not url:
             return None
