@@ -124,6 +124,7 @@ class CosmosDBSpiderMixin(object):
     def parse(self, response):
         item = EventLink()
         item['link_name'] = response.url
+        item["sheet_name"] = response.meta.get('sheet_name')
         print(f"{bcolors.OKGREEN}URL: {item['link_name']}{bcolors.ESCAPE}")
 
         self.driver.get(response.url)
@@ -138,7 +139,8 @@ class CosmosDBSpiderMixin(object):
             data = {
                 "id": hashlib.sha256(url.encode()).hexdigest(),
                 "url": url,
-                "processed": False
+                "processed": False,
+                "sheet_name": item["sheet_name"]
                 }
             print(f"{bcolors.OKGREEN}{data}{bcolors.ESCAPE}")
             try:
@@ -147,7 +149,8 @@ class CosmosDBSpiderMixin(object):
                 print(f"{bcolors.FAIL}Record already exists in cosmos: {url}{bcolors.ESCAPE}")
         item["id"] = hashlib.sha256(item["link_name"].encode()).hexdigest()
         item["processed"] = True
-        item["sheet_name"] = response.meta.get('sheet_name')
+        if item:
+            self.container.upsert_item(item)
         return item
 
 
