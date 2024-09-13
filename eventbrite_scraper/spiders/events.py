@@ -197,8 +197,8 @@ class CosmosDBSpiderMixin(object):
         item["processed"] = True
         # self.azure_cosmos_output.create_conversation(dict(item))
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
-        # if item:
-        #     self.container.upsert_item(item)
+        if item:
+            self.container.upsert_item(item)
         return item
 
 
