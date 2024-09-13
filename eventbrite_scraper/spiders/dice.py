@@ -154,7 +154,7 @@ class CosmosDBSpiderMixin(object):
         if response.status == 404:
             print(f"{bcolors.FAIL}404 Error: {response.url}{bcolors.ESCAPE}")
             item_id = hashlib.sha256(response.url.encode()).hexdigest()
-            self.container.delete_item(item=item_id, partition_key="url")
+            self.container.delete_item(item=item_id, partition_key=response.meta.get('sheet_name'))
             return
         
         elif response.status == 429:
