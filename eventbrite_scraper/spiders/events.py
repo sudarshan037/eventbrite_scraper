@@ -180,9 +180,26 @@ class CosmosDBSpiderMixin(object):
         #     button2.click()
         # except:
         #     pass
-        wait.until(
-            EC.presence_of_element_located((By.XPATH, "//strong[contains(@class, 'organizer-listing-info-variant-b__name-link')]"))
-        )
+        try:
+            wait.until(
+                EC.presence_of_element_located((By.XPATH, "//strong[contains(@class, 'organizer-listing-info-variant-b__name-link')]"))
+            )
+        except:
+            item = {
+                "event_link": response.url,
+                "sheet_name": response.meta.get('sheet_name'),
+                "event_name": "EVENT ENDED",
+                "date": "",
+                "price": "",
+                "location": "",
+                "organiser_name": "",
+                "followers": "",
+                "id": hashlib.sha256(item["event_link"].encode()).hexdigest(),
+                "processed": True
+            }
+            self.container.upsert_item(item)
+            return None
+
         body = self.driver.page_source
         # print(self.driver.page_source)
         response = Selector(text=body)
