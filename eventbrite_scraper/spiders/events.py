@@ -105,6 +105,7 @@ class CosmosDBSpiderMixin(object):
         
         record = records[0]
         url = self.process_cosmos_db_record(record)
+        url = "https://www.eventbrite.com/e/holiday-craft-marketplace-2024-tickets-1007617620427?aff=ebdssbdestsearch"
         
         if not url:
             return None
@@ -180,10 +181,11 @@ class CosmosDBSpiderMixin(object):
         #     button2.click()
         # except:
         #     pass
-        # wait.until(
-        #     EC.presence_of_element_located((By.XPATH, "//strong[contains(@class, 'organizer-listing-info-variant-b__name-link')]"))
-        # )
+        wait.until(
+            EC.presence_of_element_located((By.XPATH, "//strong[contains(@class, 'organizer-listing-info-variant-b__name-link')]"))
+        )
         body = self.driver.page_source
+        # print(self.driver.page_source)
         response = Selector(text=body)
         
         item['event_name'] = response.xpath("//h1[contains(@class, 'event-title')]/text()").get()
@@ -196,8 +198,8 @@ class CosmosDBSpiderMixin(object):
         item["processed"] = True
         # self.azure_cosmos_output.create_conversation(dict(item))
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
-        if item:
-            self.container.upsert_item(item)
+        # if item:
+        #     self.container.upsert_item(item)
         return item
 
 
