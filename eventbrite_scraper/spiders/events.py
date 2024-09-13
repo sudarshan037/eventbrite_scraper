@@ -164,6 +164,7 @@ class CosmosDBSpiderMixin(object):
             time.sleep(retry_after)
         item = EventItem()
         item['event_link'] = response.url
+        item["sheet_name"] = response.meta.get('sheet_name')
         print(f"{bcolors.OKGREEN}URL: {item['event_link']}{bcolors.ESCAPE}")
 
         self.driver.get(response.url)
@@ -193,7 +194,6 @@ class CosmosDBSpiderMixin(object):
         item['followers'] = response.xpath("//span[contains(@class, 'organizer-stats__highlight')]//strong/text()").get()
         item["id"] = hashlib.sha256(item["event_link"].encode()).hexdigest()
         item["processed"] = True
-        item["sheet_name"] = response.meta.get('sheet_name')
         # self.azure_cosmos_output.create_conversation(dict(item))
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
         if item:
