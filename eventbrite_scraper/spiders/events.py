@@ -87,8 +87,10 @@ class CosmosDBSpiderMixin(object):
             self.offset_flag = True
             self.max_offset = self.max_offset//2
             print(f"max_offset = {self.max_offset}")
-
-        random_offset = random.randrange(0, self.max_offset)
+        if self.max_offset == 0:
+            random_offset = 0
+        else:
+            random_offset = random.randrange(0, self.max_offset)
         print(f"random offset: {random_offset}")
         query = f"SELECT * FROM c WHERE c.processed = false OFFSET {random_offset} LIMIT 1"
         try:
@@ -136,9 +138,11 @@ class CosmosDBSpiderMixin(object):
         
         req = self.next_request()
         if not req:
-            print("No records found, waiting for 60 seconds before trying again...")
+            print("No records found, waiting for 120 seconds before trying again...")
             if self.max_offset <= 0:
-                time.sleep(60)
+                time.sleep(120)
+                self.max_offset = 8
+                self.offset_flag = True
             else:
                 self.offset_flag = False
         else:
