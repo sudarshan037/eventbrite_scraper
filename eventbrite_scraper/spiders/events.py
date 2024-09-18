@@ -164,7 +164,7 @@ class CosmosDBSpiderMixin(object):
                 "location": "",
                 "organiser_name": "",
                 "followers": "",
-                "id": hashlib.sha256(item["event_link"].encode()).hexdigest(),
+                "id": hashlib.sha256(response.url.encode()).hexdigest(),
                 "processed": True
             }
             self.container.upsert_item(item)
