@@ -151,10 +151,23 @@ class CosmosDBSpiderMixin(object):
         self.schedule_next_request()
 
     def parse(self, response):
-        if response.status == 404:
-            print(f"{bcolors.FAIL}404 Error: {response.url}{bcolors.ESCAPE}")
+        if response.status in [400, 403, 404]:
+            print(f"{bcolors.FAIL}{response.status} Error: {response.url}{bcolors.ESCAPE}")
             item_id = hashlib.sha256(response.url.encode()).hexdigest()
             self.container.delete_item(item=item_id, partition_key=response.meta.get('sheet_name'))
+            item = {
+                "event_link": response.url,
+                "sheet_name": response.meta.get('sheet_name'),
+                "event_name": f"ERROR: {str(response.status)}",
+                "date": "",
+                "price": "",
+                "location": "",
+                "organiser_name": "",
+                "followers": "",
+                "id": hashlib.sha256(item["event_link"].encode()).hexdigest(),
+                "processed": True
+            }
+            self.container.upsert_item(item)
             return
         
         elif response.status == 429:
@@ -162,6 +175,8 @@ class CosmosDBSpiderMixin(object):
             retry_after += 10
             print(f"{bcolors.FAIL}Rate limited. Retrying after {retry_after} seconds.{bcolors.ESCAPE}")
             time.sleep(retry_after)
+            return
+        
         item = EventItem()
         item['event_link'] = response.url
         item["sheet_name"] = response.meta.get('sheet_name')
