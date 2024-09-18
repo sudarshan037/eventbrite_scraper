@@ -117,32 +117,35 @@ class AzureCosmos:
         
 
 if __name__ == "__main__":
-    df = pd.read_csv("data/inputs/DICE Analysis 3 - Sheet3.csv")
+    # df = pd.read_csv("data/inputs/DICE Analysis 3 - Sheet3.csv")
     # df = pd.read_excel("data/inputs/links.xlsx")
     # df = df.head(2)
-    urls = df["Event_link"].to_list()
+    # urls = df["Event_link"].to_list()
     # urls = df["links"].to_list()
 
     azure_cosmos = AzureCosmos()
     # azure_cosmos.DATABASE_ID, azure_cosmos.CONTAINER_NAME = "Scraper", "eventBrite_links"
-    azure_cosmos.DATABASE_ID, azure_cosmos.CONTAINER_NAME = "Scraper", "dice_events"
+    azure_cosmos.DATABASE_ID, azure_cosmos.CONTAINER_NAME = "Scraper", "eventBrite_links"
     azure_cosmos.container = azure_cosmos.initialize_cosmosdb()
     print(azure_cosmos.fetch_one_record())
-    for url in urls:
-        print(url)
-        data = {
-            "id": hashlib.sha256(url.encode()).hexdigest(),
-            "url": url,
-            "processed": False
-        }
-        azure_cosmos.create_conversation(conversation_data=data)
-    # query = "SELECT * FROM c WHERE c.processed = true OR NOT IS_DEFINED(c.links)"
-    # try:
-    #     items = list(azure_cosmos.container.query_items(
-    #         query=query,
-    #         enable_cross_partition_query=True))
-    # except CosmosHttpResponseError as e:
-    #     print("Error fetching conversation:", e)
-    # for item in items:
+    # for url in urls:
+    #     print(url)
+    #     data = {
+    #         "id": hashlib.sha256(url.encode()).hexdigest(),
+    #         "url": url,
+    #         "processed": False
+    #     }
+    #     azure_cosmos.create_conversation(conversation_data=data)
+    sheet_name = "Internal Dating Batch 2 - Singles"
+    query = f"SELECT * FROM c WHERE c.processed=true AND c.sheet_name='{sheet_name}'"
+    try:
+        items = list(azure_cosmos.container.query_items(
+            query=query,
+            enable_cross_partition_query=True))
+    except CosmosHttpResponseError as e:
+        print("Error fetching conversation:", e)
+    for item in items:
+        print(item)
+        break
     #     item["links"] = "first"
     #     azure_cosmos.container.upsert_item(item)

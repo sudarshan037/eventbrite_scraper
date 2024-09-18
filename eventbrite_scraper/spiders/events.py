@@ -137,7 +137,7 @@ class CosmosDBSpiderMixin(object):
         req = self.next_request()
         if not req:
             print("No records found, waiting for 60 seconds before trying again...")
-            if self.max_offset <= 1:
+            if self.max_offset <= 0:
                 time.sleep(60)
             else:
                 self.offset_flag = False
