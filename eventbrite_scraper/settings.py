@@ -130,7 +130,9 @@ TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 FEED_EXPORT_ENCODING = "utf-8"
 
 DOWNLOADER_MIDDLEWARES = {
-    'scrapy_selenium.SeleniumMiddleware': 800
+    'scrapy_selenium.SeleniumMiddleware': 800,
+    'scrapy_rotating_proxies.middlewares.RotatingProxyMiddleware': 350,
+    'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 400,
 }
 
 COSMOS_DB_URI = "https://cosmos-scraper.documents.azure.com:443/"

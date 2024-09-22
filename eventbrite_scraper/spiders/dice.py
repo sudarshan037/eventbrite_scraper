@@ -36,6 +36,16 @@ class CosmosDBSpiderMixin(object):
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15',
         ]
 
+        # Load proxies from file
+        self.proxy_list = self.load_proxies("/home/sudarshan/eventbrite_scraper/eventbrite_scraper/proxy_lists.txt")
+        print(f"Loaded {len(self.proxy_list)} proxies.")
+
+    def load_proxies(self, proxy_file):
+        """Loads proxy list from the given file."""
+        with open(proxy_file, 'r') as file:
+            proxies = [line.strip() for line in file if line.strip()]
+        return proxies
+
     """
     Mixin class to implement reading records from a Cosmos DB container.
 
@@ -82,7 +92,6 @@ class CosmosDBSpiderMixin(object):
 
         :rtype: scrapy.Request or None
         """
-        # query = "SELECT TOP 1 * FROM c WHERE c.processed = false"
         if not self.offset_flag:
             self.offset_flag = True
             self.max_offset = self.max_offset//2
@@ -108,11 +117,10 @@ class CosmosDBSpiderMixin(object):
         
         if not url:
             return None
-        
-        # # Mark the record as processed
-        # if not record['processed']:
-        #     record['processed'] = True
-        #     self.container.upsert_item(record)
+
+        # Select a random proxy from the list
+        proxy = random.choice(self.proxy_list)
+        print(f"Using proxy: {proxy}")
         
         output = scrapy.Request(
                     url=url,
@@ -120,7 +128,10 @@ class CosmosDBSpiderMixin(object):
                     headers={
                         'User-Agent': random.choice(self.USER_AGENTS)
                     },
-                    meta={'sheet_name': record.get("sheet_name", "")}
+                    meta={
+                        'sheet_name': record.get("sheet_name", ""),
+                        'proxy': proxy  # Set proxy for the request
+                    }
                 )
         return output
 
@@ -162,10 +173,12 @@ class CosmosDBSpiderMixin(object):
             retry_after += 10
             print(f"{bcolors.FAIL}Rate limited. Retrying after {retry_after} seconds.{bcolors.ESCAPE}")
             time.sleep(retry_after)
+        
         item = DiceLink()
         item['event_link'] = response.url
         item["url"] = response.url
         print(f"{bcolors.OKGREEN}URL: {item['event_link']}{bcolors.ESCAPE}")
+        
         try:
             self.driver.get(response.url)
             wait = WebDriverWait(self.driver, 10)
@@ -177,10 +190,12 @@ class CosmosDBSpiderMixin(object):
             item['location'] = response.xpath("//div[@class='EventDetailsVenue__Address-sc-42637e02-5 cxsjwk']/span/text()").get()
         except Exception as e:
             print(f"{bcolors.FAIL}Error processing {response.url}: {str(e)}{bcolors.ESCAPE}")
+        
         item["processed"] = True
         item["sheet_name"] = response.meta.get('sheet_name')
         self.driver.quit()
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
+        
         if item:
             self.container.upsert_item(item)
         return item
@@ -209,23 +224,26 @@ class EventsSpider(CosmosDBSpiderMixin, Spider):
         chrome_options.add_argument("--headless")  # Ensure GUI is off
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
+
         self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        self.setup_cosmos_db(kwargs.get('settings'))
 
+        print(f"Spider {self.name} initialized and ready.")
 
-    def _set_crawler(self, crawler):
-        """
-        :type crawler: scrapy.crawler.Crawler
-        """
-        super(EventsSpider, self)._set_crawler(crawler)
-        self.setup_cosmos_db(crawler.settings)
+    # def _set_crawler(self, crawler):
+    #     """
+    #     :type crawler: scrapy.crawler.Crawler
+    #     """
+    #     super(EventsSpider, self)._set_crawler(crawler)
+    #     self.setup_cosmos_db(crawler.settings)
         
-    # def start_requests(self):
-    #     """
-    #     Override start_requests to use the custom method for generating initial requests.
-    #     """
-    #     req = self.next_request()
-    #     if req:
-    #         yield req
+    # # def start_requests(self):
+    # #     """
+    # #     Override start_requests to use the custom method for generating initial requests.
+    # #     """
+    # #     req = self.next_request()
+    # #     if req:
+    # #         yield req
 
-    def closed(self, reason):
-        self.driver.quit()
+    # def closed(self, reason):
+    #     self.driver.quit()

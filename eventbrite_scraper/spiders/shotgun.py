@@ -82,47 +82,71 @@ class CosmosDBSpiderMixin(object):
 
         :rtype: scrapy.Request or None
         """
-        # query = "SELECT TOP 1 * FROM c WHERE c.processed = false"
         if not self.offset_flag:
             self.offset_flag = True
-            self.max_offset = self.max_offset//2
+            self.max_offset = self.max_offset // 2
             print(f"max_offset = {self.max_offset}")
 
-        random_offset = random.randrange(0, self.max_offset)
-        print(f"random offset: {random_offset}")
-        query = f"SELECT * FROM c WHERE c.processed = false AND NOT IS_DEFINED(c.event_name) OFFSET {random_offset} LIMIT 1"
+        # Fetch a batch of unprocessed records to determine the remaining count
         try:
-            records = list(self.container.query_items(
-                query=query,
-                enable_cross_partition_query=True))
+            unprocessed_records = list(self.container.query_items(
+                query="SELECT * FROM c WHERE c.processed = false AND NOT IS_DEFINED(c.event_name)",
+                enable_cross_partition_query=True
+            ))
         except CosmosHttpResponseError as e:
-            print("Error fetching conversation:", e)
-            records = None
-        # records = [{"url": "http://shotgun.live/venues/badaboum-club"}]
+            print("Error fetching unprocessed records:", e)
+            return None
+
+        remaining_records = len(unprocessed_records)
+        print(f"Remaining unprocessed records: {remaining_records}")
+
+        # Handle cases when only a few records are left
+        if remaining_records <= 4:
+            # Fetch all remaining records in a batch if there are few left
+            query = "SELECT * FROM c WHERE c.processed = false AND NOT IS_DEFINED(c.event_name) LIMIT 1"
+            try:
+                records = list(self.container.query_items(
+                    query=query,
+                    enable_cross_partition_query=True
+                ))
+            except CosmosHttpResponseError as e:
+                print("Error fetching records:", e)
+                return None
+        else:
+            # Use random offset when more records are present
+            random_offset = random.randrange(0, self.max_offset)
+            print(f"random offset: {random_offset}")
+            query = f"SELECT * FROM c WHERE c.processed = false AND NOT IS_DEFINED(c.event_name) OFFSET {random_offset} LIMIT 1"
+            try:
+                records = list(self.container.query_items(
+                    query=query,
+                    enable_cross_partition_query=True
+                ))
+            except CosmosHttpResponseError as e:
+                print("Error fetching records:", e)
+                return None
 
         if not records:
             return None
-        
+
         record = records[0]
         url = self.process_cosmos_db_record(record)
-        
+
         if not url:
             return None
-        
-        # # Mark the record as processed
-        # if not record['processed']:
-        #     record['processed'] = True
-        #     self.container.upsert_item(record)
-        
-        output =  scrapy.Request(
-                    url=url,
-                    callback=self.parse,
-                    headers={
-                        'User-Agent': random.choice(self.USER_AGENTS)
-                    },
-                    meta={'sheet_name': record.get("sheet_name", "")}
-                )
+
+        output = scrapy.Request(
+            url=url,
+            callback=self.parse,
+            headers={
+                'User-Agent': random.choice(self.USER_AGENTS)
+            },
+            meta={'sheet_name': record.get("sheet_name", "")}
+        )
         return output
+
+
+
 
     def schedule_next_request(self):
         """Schedules a request if available"""
