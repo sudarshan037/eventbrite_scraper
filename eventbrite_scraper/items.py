@@ -11,13 +11,19 @@ class EventbriteScraperItem(scrapy.Item):
     # name = scrapy.Field()
     pass
 
-class EventItem(scrapy.Item):
+class EventLink(scrapy.Item):
     id = scrapy.Field()
-    links = scrapy.Field()
+    url = scrapy.Field()
     processed = scrapy.Field()
     sheet_name = scrapy.Field()
 
-    event_link = scrapy.Field()
+class EventItem(scrapy.Item):
+    id = scrapy.Field()
+    url = scrapy.Field()
+    processed = scrapy.Field()
+    source_url = scrapy.Field()
+    sheet_name = scrapy.Field()
+
     event_name = scrapy.Field()
     date = scrapy.Field()
     price = scrapy.Field()
@@ -25,12 +31,7 @@ class EventItem(scrapy.Item):
     organiser_name = scrapy.Field()
     followers = scrapy.Field()
 
-class EventLink(scrapy.Item):
-    id = scrapy.Field()
-    processed = scrapy.Field()
-    sheet_name = scrapy.Field()
 
-    link_name = scrapy.Field()
 
 class DiceLink(scrapy.Item):
     id = scrapy.Field()
@@ -46,11 +47,23 @@ class DiceLink(scrapy.Item):
     location = scrapy.Field()
     
 
-class Shotgun(scrapy.Item):
+class ShotgunLink(scrapy.Item):
     id = scrapy.Field()
-    links = scrapy.Field()
+    url = scrapy.Field()
     processed = scrapy.Field()
     sheet_name = scrapy.Field()
 
-    event_link = scrapy.Field()
+class ShotgunEvents(scrapy.Item):
+    id = scrapy.Field()
+    url = scrapy.Field()
+    processed = scrapy.Field()
+    source_url = scrapy.Field()
+    sheet_name = scrapy.Field()
+
     event_name = scrapy.Field()
+    date = scrapy.Field()
+    location = scrapy.Field()
+    followers_1 = scrapy.Field()
+    followers_2 = scrapy.Field()
+    organiser_name_1 = scrapy.Field()
+    organiser_name_2 = scrapy.Field()

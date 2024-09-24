@@ -6,8 +6,7 @@ from azure.cosmos.exceptions import CosmosHttpResponseError
 from scrapy import signals
 from scrapy.exceptions import DontCloseSpider
 from scrapy.spiders import Spider
-
-from eventbrite_scraper.items import EventItem
+from eventbrite_scraper.items import ShotgunEvents
 from eventbrite_scraper.utils import bcolors
 from scrapy.selector import Selector
 from selenium import webdriver
@@ -66,7 +65,7 @@ class CosmosDBSpiderMixin(object):
         self.cosmos_db_uri = settings.get('COSMOS_DB_URI', 'your_cosmos_db_uri')
         self.cosmos_db_key = settings.get('COSMOS_DB_KEY', 'your_cosmos_db_key')
         self.cosmos_db_database = settings.get('COSMOS_DB_DATABASE', 'your_database')
-        self.cosmos_db_container_name = "eventBrite_events"
+        self.cosmos_db_container_name = "shotgun_events"
 
         self.client = CosmosClient(self.cosmos_db_uri, self.cosmos_db_key)
         self.database = self.client.get_database_client(self.cosmos_db_database)
@@ -100,8 +99,7 @@ class CosmosDBSpiderMixin(object):
         except CosmosHttpResponseError as e:
             print("Error fetching conversation:", e)
             records = None
-        # records = list(self.container.query_items(query=query, enable_cross_partition_query=True))
-
+        
         if not records:
             return None
         
@@ -111,18 +109,14 @@ class CosmosDBSpiderMixin(object):
         if not url:
             return None
         
-        # # Mark the record as processed
-        # if not record['processed']:
-        #     record['processed'] = True
-        #     self.container.upsert_item(record)
-        
         output = scrapy.Request(
                     url=url,
                     callback=self.parse,
                     headers={
                         'User-Agent': random.choice(self.USER_AGENTS)
                     },
-                    meta={'sheet_name': record.get("sheet_name", "")}
+                    meta={'sheet_name': record.get("sheet_name", ""),
+                          'source_url': record.get("source_url", "")}
                 )
         return output
 
@@ -157,21 +151,23 @@ class CosmosDBSpiderMixin(object):
     def parse(self, response):
         if response.status in [400, 403, 404]:
             print(f"{bcolors.FAIL}{response.status} Error: {response.url}{bcolors.ESCAPE}")
-            item_id = hashlib.sha256(response.url.encode()).hexdigest()
             # self.container.delete_item(item=item_id, partition_key=response.meta.get('sheet_name'))
             item = {
-                "event_link": response.url,
+                "id": hashlib.sha256(response.url.encode()).hexdigest(),
+                "url": response.url,
+                "processed": True,
+                "source_url": response.meta.get('source_url'),
                 "sheet_name": response.meta.get('sheet_name'),
+
                 "event_name": f"ERROR: {str(response.status)}",
                 "date": "",
-                "price": "",
                 "location": "",
-                "organiser_name": "",
-                "followers": "",
-                "id": hashlib.sha256(response.url.encode()).hexdigest(),
-                "processed": True
+                "organiser_name_1": "",
+                "organiser_name_2": "",
+                "followers_1": "",
+                "followers_2": "",
             }
-            self.container.upsert_item(item)
+            # self.container.upsert_item(item)
             return
         
         elif response.status == 429:
@@ -181,57 +177,27 @@ class CosmosDBSpiderMixin(object):
             time.sleep(retry_after)
             return
         
-        item = EventItem()
-        item['event_link'] = response.url
-        item["sheet_name"] = response.meta.get('sheet_name')
-        print(f"{bcolors.OKGREEN}URL: {item['event_link']}{bcolors.ESCAPE}")
+        item = ShotgunEvents()
+        print(f"{bcolors.OKGREEN}URL: {response.url}{bcolors.ESCAPE}")
 
         self.driver.get(response.url)
         wait = WebDriverWait(self.driver, 10)
-        # try:
-        #     # press button 1
-        #     button1_text = 'View event'
-        #     button1 = self.driver.find_element(By.XPATH, f"//button[text()='{button1_text}']")
-        #     button1.click()
-        #     # press button 2
-        #     button2_text = 'View all event details'
-        #     button2 = self.driver.find_element(By.XPATH, f"//button[text()='{button2_text}']")
-        #     button2.click()
-        # except:
-        #     pass
-        try:
-            wait.until(
-                EC.presence_of_element_located((By.XPATH, "//strong[contains(@class, 'organizer-listing-info-variant-b__name-link')]"))
-            )
-        except:
-            item = {
-                "event_link": response.url,
-                "sheet_name": response.meta.get('sheet_name'),
-                "event_name": "EVENT ENDED",
-                "date": "",
-                "price": "",
-                "location": "",
-                "organiser_name": "",
-                "followers": "",
-                "id": hashlib.sha256(item["event_link"].encode()).hexdigest(),
-                "processed": True
-            }
-            self.container.upsert_item(item)
-            return None
 
         body = self.driver.page_source
-        # print(self.driver.page_source)
-        response = Selector(text=body)
-        
-        item['event_name'] = response.xpath("//h1[contains(@class, 'event-title')]/text()").get()
-        item['date'] = response.xpath("//time[contains(@class, 'start-date')]/text()").get()
-        item['price'] = response.xpath("//div[@class='conversion-bar__panel-info']/text()").get()
-        item['location'] = response.xpath("//div[contains(@class, 'location-info__address')]/text()").get()
-        item['organiser_name'] = response.xpath("//strong[contains(@class, 'organizer-listing-info-variant-b__name-link')]/text()").get()
-        item['followers'] = response.xpath("//span[contains(@class, 'organizer-stats__highlight')]//strong/text()").get()
-        item["id"] = hashlib.sha256(item["event_link"].encode()).hexdigest()
+        selector_response = Selector(text=body)
+        item["id"] = hashlib.sha256(response.url.encode()).hexdigest()
+        item["url"] = response.url
         item["processed"] = True
-        # self.azure_cosmos_output.create_conversation(dict(item))
+        item["sheet_name"] = response.meta.get('sheet_name')
+
+        item['event_name'] = selector_response.xpath("//h1[contains(@class, 'css-4rbku5') and contains(@class, 'css-901oao')]/text()").get()
+        item['date'] = selector_response.xpath("//div[contains(@class, 'css-901oao') and contains(@class, 'r-1rmgsgu')]/span[contains(@class, 'css-16my406')]/text()").get()
+        item['location'] = selector_response.xpath("//div[contains(@class, 'css-1dbjc4n r-1awozwy r-18u37iz r-p1pxzi')]/div/div/div/span/text()").get()
+        item['organiser_name_1'] = selector_response.xpath("//div[contains(@class, 'css-901oao') and contains(@class, 'r-jwli3a') and contains(@class, 'r-ubezar')]/text()").get()
+        item['organiser_name_2'] = selector_response.xpath("//div[contains(@class, 'css-1dbjc4n')]/div[contains(@class, 'css-901oao') and contains(@class, 'r-jwli3a')]/text()").get()
+        item['followers_1'] = selector_response.xpath("//div[contains(@class, 'css-901oao') and contains(@class, 'r-1a7l8x0') and contains(@class, 'r-1b43r93')]/text()").get()
+        item['followers_2'] = selector_response.xpath("//div[contains(@class, 'css-1dbjc4n')]/div[contains(@class, 'r-1a7l8x0') and contains(@class, 'r-1b43r93')]/text()").get()
+        
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
         if item:
             self.container.upsert_item(item)
@@ -239,7 +205,7 @@ class CosmosDBSpiderMixin(object):
 
 
 class EventsSpider(CosmosDBSpiderMixin, Spider):
-    name = "events"
+    name = "shotgun_events"
 
     """
     Spider that reads records from a Cosmos DB container when idle.

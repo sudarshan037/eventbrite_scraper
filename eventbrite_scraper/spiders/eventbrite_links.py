@@ -54,12 +54,12 @@ class CosmosDBSpiderMixin(object):
         self.cosmos_db_uri = settings.get('COSMOS_DB_URI', 'your_cosmos_db_uri')
         self.cosmos_db_key = settings.get('COSMOS_DB_KEY', 'your_cosmos_db_key')
         self.cosmos_db_database = settings.get('COSMOS_DB_DATABASE', 'your_database')
-        self.cosmos_db_container_name = "eventBrite_links"
+        self.cosmos_db_container_name = "eventbrite_links"
 
         self.client = CosmosClient(self.cosmos_db_uri, self.cosmos_db_key)
         self.database = self.client.get_database_client(self.cosmos_db_database)
         self.container = self.database.get_container_client(self.cosmos_db_container_name)
-        self.events_container = self.database.get_container_client("eventBrite_events")
+        self.events_container = self.database.get_container_client("eventbrite_events")
 
         self.crawler.signals.connect(self.spider_idle, signal=signals.spider_idle)
         self.crawler.signals.connect(self.item_scraped, signal=signals.item_scraped)
@@ -87,10 +87,6 @@ class CosmosDBSpiderMixin(object):
         if not url:
             return None
         
-        # Mark the record as processed
-        # record['processed'] = True
-        # self.container.upsert_item(record)
-        
         output =  scrapy.Request(
                     url=url,
                     callback=self.parse,
@@ -110,8 +106,8 @@ class CosmosDBSpiderMixin(object):
         
         req = self.next_request()
         if not req:
-            print("No records found, waiting for 60 seconds before trying again...")
-            time.sleep(60)
+            print("No records found, waiting for 120 seconds before trying again...")
+            time.sleep(120)
         else:
             self.crawler.engine.crawl(req)
 
@@ -123,39 +119,44 @@ class CosmosDBSpiderMixin(object):
 
     def parse(self, response):
         item = EventLink()
-        item['link_name'] = response.url
-        item["sheet_name"] = response.meta.get('sheet_name')
-        print(f"{bcolors.OKGREEN}URL: {item['link_name']}{bcolors.ESCAPE}")
+
+        print(f"{bcolors.OKGREEN}URL: {response.url}{bcolors.ESCAPE}")
 
         self.driver.get(response.url)
         wait = WebDriverWait(self.driver, 10)
         
         body = self.driver.page_source
-        response = Selector(text=body)
+        selector_response = Selector(text=body)
         
         # Extract all hrefs from a tags with class 'event-card-link'
-        links = response.xpath("//a[contains(@class, 'event-card-link')]/@href").getall()
+        links = selector_response.xpath("//a[contains(@class, 'event-card-link')]/@href").getall()
         for url in list(set(links)):
             data = {
                 "id": hashlib.sha256(url.encode()).hexdigest(),
                 "url": url,
                 "processed": False,
-                "sheet_name": item["sheet_name"]
+                "source_url": response.url,
+                "sheet_name": response.meta.get('sheet_name')
                 }
-            print(f"{bcolors.OKGREEN}{data}{bcolors.ESCAPE}")
+            print(f"{bcolors.OKBLUE}{data}{bcolors.ESCAPE}")
             try:
                 self.events_container.create_item(data)
             except:
                 print(f"{bcolors.FAIL}Record already exists in cosmos: {url}{bcolors.ESCAPE}")
-        item["id"] = hashlib.sha256(item["link_name"].encode()).hexdigest()
+
+        item["id"] = hashlib.sha256(response.url.encode()).hexdigest()
+        item["url"] = response.url
         item["processed"] = True
+        item["sheet_name"] = response.meta.get('sheet_name')
+
         if item:
             self.container.upsert_item(item)
+            time.sleep(5)
         return item
 
 
 class EventsSpider(CosmosDBSpiderMixin, Spider):
-    name = "links"
+    name = "eventbrite_links"
 
     """
     Spider that reads records from a Cosmos DB container when idle.

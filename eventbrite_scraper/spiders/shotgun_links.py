@@ -7,7 +7,7 @@ from scrapy import signals
 from scrapy.exceptions import DontCloseSpider
 from scrapy.spiders import Spider
 
-from eventbrite_scraper.items import Shotgun
+from eventbrite_scraper.items import ShotgunLink
 from eventbrite_scraper.utils import bcolors
 from scrapy.selector import Selector
 from selenium import webdriver
@@ -66,11 +66,12 @@ class CosmosDBSpiderMixin(object):
         self.cosmos_db_uri = settings.get('COSMOS_DB_URI', 'your_cosmos_db_uri')
         self.cosmos_db_key = settings.get('COSMOS_DB_KEY', 'your_cosmos_db_key')
         self.cosmos_db_database = settings.get('COSMOS_DB_DATABASE', 'your_database')
-        self.cosmos_db_container_name = "shotgun_events"
+        self.cosmos_db_container_name = "shotgun_links"
 
         self.client = CosmosClient(self.cosmos_db_uri, self.cosmos_db_key)
         self.database = self.client.get_database_client(self.cosmos_db_database)
         self.container = self.database.get_container_client(self.cosmos_db_container_name)
+        self.events_container = self.database.get_container_client("shotgun_events")
 
         self.crawler.signals.connect(self.spider_idle, signal=signals.spider_idle)
         self.crawler.signals.connect(self.item_scraped, signal=signals.item_scraped)
@@ -87,10 +88,12 @@ class CosmosDBSpiderMixin(object):
             self.offset_flag = True
             self.max_offset = self.max_offset//2
             print(f"max_offset = {self.max_offset}")
-
-        random_offset = random.randrange(0, self.max_offset)
+        if self.max_offset == 0:
+            random_offset = 0
+        else:
+            random_offset = random.randrange(0, self.max_offset)
         print(f"random offset: {random_offset}")
-        query = f"SELECT * FROM c WHERE c.processed = false AND NOT IS_DEFINED(c.event_name) OFFSET {random_offset} LIMIT 1"
+        query = f"SELECT * FROM c WHERE c.processed = false OFFSET {random_offset} LIMIT 1"
         try:
             records = list(self.container.query_items(
                 query=query,
@@ -98,7 +101,6 @@ class CosmosDBSpiderMixin(object):
         except CosmosHttpResponseError as e:
             print("Error fetching conversation:", e)
             records = None
-        # records = [{"url": "http://shotgun.live/venues/badaboum-club"}]
 
         if not records:
             return None
@@ -108,11 +110,6 @@ class CosmosDBSpiderMixin(object):
         
         if not url:
             return None
-        
-        # # Mark the record as processed
-        # if not record['processed']:
-        #     record['processed'] = True
-        #     self.container.upsert_item(record)
         
         output =  scrapy.Request(
                     url=url,
@@ -136,9 +133,12 @@ class CosmosDBSpiderMixin(object):
         
         req = self.next_request()
         if not req:
-            print("No records found, waiting for 60 seconds before trying again...")
-            if self.max_offset <= 1:
-                time.sleep(60)
+            if self.max_offset <= 0:
+                print("No records found, waiting for 120 seconds before trying again...")
+                time.sleep(120)
+                self.max_offset = 8
+                self.offset_flag = True
+                print(f"max_offset: {self.max_offset}")
             else:
                 self.offset_flag = False
         else:
@@ -180,10 +180,17 @@ class CosmosDBSpiderMixin(object):
         return ""
 
     def parse(self, response):
-        if response.status == 404:
-            print(f"{bcolors.FAIL}404 Error: {response.url}{bcolors.ESCAPE}")
-            item_id = hashlib.sha256(response.url.encode()).hexdigest()
-            self.container.delete_item(item=item_id, partition_key=response.meta.get('sheet_name'))
+        if response.status in [400, 403, 404]:
+            print(f"{bcolors.FAIL}{response.status} Error: {response.url}{bcolors.ESCAPE}")
+            # self.container.delete_item(item=item_id, partition_key=response.meta.get('sheet_name'))
+            item = {
+                "id": hashlib.sha256(response.url.encode()).hexdigest(),
+                "url": response.url,
+                "processed": True,
+                "event_url": f"ERROR: {str(response.status)}",
+                "sheet_name": response.meta.get('sheet_name')
+            }
+            self.container.upsert_item(item)
             return
         
         elif response.status == 429:
@@ -191,23 +198,49 @@ class CosmosDBSpiderMixin(object):
             retry_after += 10
             print(f"{bcolors.FAIL}Rate limited. Retrying after {retry_after} seconds.{bcolors.ESCAPE}")
             time.sleep(retry_after)
+            return
 
-        item = Shotgun()
-        item['event_link'] = response.url
-        print(f"{bcolors.OKGREEN}URL: {item['event_link']}{bcolors.ESCAPE}")
+        item = ShotgunLink()
+        
+        print(f"{bcolors.OKGREEN}URL: {response.url}{bcolors.ESCAPE}")
 
         try:
             self.driver.get(response.url)
-            wait = WebDriverWait(self.driver, 10)
-            body = self.driver.page_source
-            selenium_response = Selector(text=body)
-            item['event_name'] = self.extract_first_link_by_event_type()
+            # wait = WebDriverWait(self.driver, 10)
+            # body = self.driver.page_source
+            # selector_response = Selector(text=body)
+            event_url = self.extract_first_link_by_event_type()
+            data = {
+                "id": hashlib.sha256(event_url.encode()).hexdigest(),
+                "url": event_url,
+                "processed": False,
+                "source_url": response.url,
+                "sheet_name": response.meta.get('sheet_name'),
+            }
+            print(f"{bcolors.OKBLUE}{data}{bcolors.ESCAPE}")
+
+            try:
+                self.events_container.create_item(data)
+            except:
+                print(f"{bcolors.FAIL}Record already exists in cosmos: {data['url']}{bcolors.ESCAPE}")
+
         except Exception as e:
             print(f"{bcolors.FAIL}Error processing {response.url}: {str(e)}{bcolors.ESCAPE}")
-        item["id"] = hashlib.sha256(item["event_link"].encode()).hexdigest()
+            item = {
+                "id": hashlib.sha256(response.url.encode()).hexdigest(),
+                "url": response.url,
+                "processed": True,
+                "event_url": f"ERROR in processing URL",
+                "sheet_name": response.meta.get('sheet_name')
+            }
+            self.container.upsert_item(item)
+            return
+
+        item["id"] = hashlib.sha256(response.url.encode()).hexdigest()
+        item["url"] = response.url
         item["processed"] = True
         item["sheet_name"] = response.meta.get('sheet_name')
-        # self.driver.quit()
+
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
         if item:
             self.container.upsert_item(item)
@@ -215,7 +248,7 @@ class CosmosDBSpiderMixin(object):
         
 
 class EventsSpider(CosmosDBSpiderMixin, Spider):
-    name = "shotgun"
+    name = "shotgun_links"
 
     """
     Spider that reads records from a Cosmos DB container when idle.
