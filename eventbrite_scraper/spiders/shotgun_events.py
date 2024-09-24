@@ -115,8 +115,11 @@ class CosmosDBSpiderMixin(object):
                     headers={
                         'User-Agent': random.choice(self.USER_AGENTS)
                     },
-                    meta={'sheet_name': record.get("sheet_name", ""),
-                          'source_url': record.get("source_url", "")}
+                    meta={
+                        'sheet_name': record.get("sheet_name", ""),
+                        'source_url': record.get("source_url", ""),
+                        'url': url
+                        }
                 )
         return output
 
@@ -149,12 +152,16 @@ class CosmosDBSpiderMixin(object):
         self.schedule_next_request()
 
     def parse(self, response):
+        print(f"{bcolors.OKGREEN}URL: {response.meta.get('url')}{bcolors.ESCAPE}")
+        if response.meta.get('url') != response.url:
+            print(f"{bcolors.FAIL}REDIRECTION: [{response.meta.get('url')}] -> [{response.url}]")
+
         if response.status in [400, 403, 404]:
             print(f"{bcolors.FAIL}{response.status} Error: {response.url}{bcolors.ESCAPE}")
             # self.container.delete_item(item=item_id, partition_key=response.meta.get('sheet_name'))
             item = {
-                "id": hashlib.sha256(response.url.encode()).hexdigest(),
-                "url": response.url,
+                "id": hashlib.sha256(response.meta.get('url').encode()).hexdigest(),
+                "url": response.meta.get('url'),
                 "processed": True,
                 "source_url": response.meta.get('source_url'),
                 "sheet_name": response.meta.get('sheet_name'),
@@ -178,15 +185,14 @@ class CosmosDBSpiderMixin(object):
             return
         
         item = ShotgunEvents()
-        print(f"{bcolors.OKGREEN}URL: {response.url}{bcolors.ESCAPE}")
 
         self.driver.get(response.url)
         wait = WebDriverWait(self.driver, 10)
 
         body = self.driver.page_source
         selector_response = Selector(text=body)
-        item["id"] = hashlib.sha256(response.url.encode()).hexdigest()
-        item["url"] = response.url
+        item["id"] = hashlib.sha256(response.meta.get('url').encode()).hexdigest()
+        item["url"] = response.meta.get('url')
         item["processed"] = True
         item["sheet_name"] = response.meta.get('sheet_name')
 

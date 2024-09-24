@@ -90,7 +90,10 @@ class CosmosDBSpiderMixin(object):
         output =  scrapy.Request(
                     url=url,
                     callback=self.parse,
-                    meta={'sheet_name': record.get("sheet_name", "")}
+                    meta={
+                        'sheet_name': record.get("sheet_name", ""),
+                        "url": url
+                        }
                 )
         return output
 
@@ -120,7 +123,9 @@ class CosmosDBSpiderMixin(object):
     def parse(self, response):
         item = EventLink()
 
-        print(f"{bcolors.OKGREEN}URL: {response.url}{bcolors.ESCAPE}")
+        print(f"{bcolors.OKGREEN}URL: {response.meta.get('url')}{bcolors.ESCAPE}")
+        if response.meta.get('url') != response.url:
+            print(f"{bcolors.FAIL}REDIRECTION: [{response.meta.get('url')}] -> [{response.url}]")
 
         self.driver.get(response.url)
         wait = WebDriverWait(self.driver, 10)
@@ -135,7 +140,7 @@ class CosmosDBSpiderMixin(object):
                 "id": hashlib.sha256(url.encode()).hexdigest(),
                 "url": url,
                 "processed": False,
-                "source_url": response.url,
+                "source_url": response.meta.get('url'),
                 "sheet_name": response.meta.get('sheet_name')
                 }
             print(f"{bcolors.OKBLUE}{data}{bcolors.ESCAPE}")
@@ -144,8 +149,8 @@ class CosmosDBSpiderMixin(object):
             except:
                 print(f"{bcolors.FAIL}Record already exists in cosmos: {url}{bcolors.ESCAPE}")
 
-        item["id"] = hashlib.sha256(response.url.encode()).hexdigest()
-        item["url"] = response.url
+        item["id"] = hashlib.sha256(response.meta.get('url').encode()).hexdigest()
+        item["url"] = response.meta.get('url')
         item["processed"] = True
         item["sheet_name"] = response.meta.get('sheet_name')
 
