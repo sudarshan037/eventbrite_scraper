@@ -176,7 +176,7 @@ class CosmosDBSpiderMixin(object):
                 "followers_1": "",
                 "followers_2": "",
             }
-            # self.container.upsert_item(item)
+            self.container.upsert_item(item)
             return
         
         elif response.status == 429:
@@ -202,11 +202,32 @@ class CosmosDBSpiderMixin(object):
 
         item['event_name'] = selector_response.xpath("//h1[contains(@class, 'css-4rbku5') and contains(@class, 'css-901oao')]/text()").get()
         item['date'] = selector_response.xpath("//div[contains(@class, 'css-901oao') and contains(@class, 'r-1rmgsgu')]/span[contains(@class, 'css-16my406')]/text()").get()
-        item['location'] = selector_response.xpath("//div[contains(@class, 'css-1dbjc4n r-1awozwy r-18u37iz r-p1pxzi')]/div/div/div/span/text()").getll()
-        item['organiser_name_1'] = selector_response.xpath("//div[contains(@class, 'css-901oao') and contains(@class, 'r-jwli3a') and contains(@class, 'r-ubezar')]/text()").get()
-        item['organiser_name_2'] = selector_response.xpath("//div[contains(@class, 'css-1dbjc4n')]/div[contains(@class, 'css-901oao') and contains(@class, 'r-jwli3a')]/text()").get()
-        item['followers_1'] = selector_response.xpath("//div[contains(@class, 'css-901oao') and contains(@class, 'r-1a7l8x0') and contains(@class, 'r-1b43r93')]/text()").get()
-        item['followers_2'] = selector_response.xpath("//div[contains(@class, 'css-1dbjc4n')]/div[contains(@class, 'r-1a7l8x0') and contains(@class, 'r-1b43r93')]/text()").get()
+        
+        item['location'] = []
+        location_items = selector_response.xpath("//div[contains(@class, 'css-1dbjc4n r-1awozwy r-18u37iz r-p1pxzi')]//span/text()").getall()
+        [item['location'].append(location_item) for location_item in location_items if location_item not in item['location']]
+        item['location'] = " ".join(item['location'])
+
+        organizers = []
+        for organizer_div in selector_response.xpath("//div[contains(@class, 'css-1dbjc4n r-1awozwy r-18u37iz r-1wtj0ep r-1peese0 r-bxaokz')]"):
+            organizers.append({
+                'name': organizer_div.xpath(".//div[@dir='auto'][1]/text()").get(default='').strip(),
+                'followers': organizer_div.xpath(".//div[@dir='auto'][2]/text()").get(default='').strip(),
+            })
+        
+        try:
+            item['organiser_name_1'] = organizers[0]["name"]
+            item['followers_1'] = organizers[0]["followers"]
+        except:
+            item['organiser_name_1'] = ""
+            item['followers_1'] = ""
+        
+        try:
+            item['organiser_name_2'] = organizers[1]["name"]
+            item['followers_2'] = organizers[1]["followers"]
+        except:
+            item['organiser_name_2'] = ""
+            item['followers_2'] = ""
         
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
         self.container.upsert_item(item)

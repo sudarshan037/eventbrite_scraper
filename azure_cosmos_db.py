@@ -2,7 +2,7 @@ import logging
 import hashlib
 import pandas as pd
 from azure.cosmos import CosmosClient
-from azure.cosmos.exceptions import CosmosHttpResponseError
+from azure.cosmos.exceptions import CosmosHttpResponseError, CosmosResourceExistsError
 
 class AzureCosmos:
     def __init__(self) -> None:
@@ -74,19 +74,18 @@ class AzureCosmos:
             return False
         
         conversation_id = conversation_data["id"]
-        existing_conversation = self.fetch_conversation(conversation_id)
+        # existing_conversation = self.fetch_conversation(conversation_id)
 
-        if existing_conversation:
-            print(f"[INFO] Record already exists in {self.CONTAINER_NAME}, skipping insertion.")
-            return False
+        # if existing_conversation:
+        #     print(f"[INFO] Record already exists in {self.CONTAINER_NAME}, skipping insertion.")
+        #     return False
 
         try:
             self.container.create_item(body=conversation_data)
             print("[INFO] Conversation created successfully")
             return True
         except CosmosHttpResponseError as e:
-            print("Error creating conversation:", e)
-            return False
+            raise e
 
     def update_conversation(self, conversation_id, update_data):
         '''
