@@ -189,6 +189,7 @@ class CosmosDBSpiderMixin(object):
         item = ShotgunEvents()
 
         self.driver.get(response.url)
+        
         wait = WebDriverWait(self.driver, 10)
 
         body = self.driver.page_source
