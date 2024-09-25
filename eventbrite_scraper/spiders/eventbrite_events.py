@@ -160,8 +160,9 @@ class CosmosDBSpiderMixin(object):
         if response.status in [400, 403, 404]:
             print(f"{bcolors.FAIL}{response.status} Error: {response.url}{bcolors.ESCAPE}")
             # self.container.delete_item(item=item_id, partition_key=response.meta.get('sheet_name'))
+            hash_key = response.meta.get('sheet_name') + response.meta.get('url')
             item = {
-                "id": hashlib.sha256(response.meta.get('url').encode()).hexdigest(),
+                "id": hashlib.sha256(hash_key.encode()).hexdigest(),
                 "url": response.meta.get('url'),
                 "processed": True,
                 "source_url": response.meta.get('source_url'),
@@ -204,8 +205,9 @@ class CosmosDBSpiderMixin(object):
                 EC.presence_of_element_located((By.XPATH, "//strong[contains(@class, 'organizer-listing-info-variant-b__name-link')]"))
             )
         except:
+            hash_key = response.meta.get('sheet_name') + response.meta.get('url')
             item = {
-                "id": hashlib.sha256(response.meta.get('url').encode()).hexdigest(),
+                "id": hashlib.sha256(hash_key.encode()).hexdigest(),
                 "url": response.meta.get('url'),
                 "processed": True,
                 "source_url": response.meta.get('source_url'),
@@ -223,8 +225,9 @@ class CosmosDBSpiderMixin(object):
 
         body = self.driver.page_source
         selector_response = Selector(text=body)
-        
-        item["id"] = hashlib.sha256(response.meta.get('url').encode()).hexdigest()
+
+        hash_key = response.meta.get('sheet_name') + response.meta.get('url')
+        item["id"] = hashlib.sha256(hash_key.encode()).hexdigest()
         item["url"] = response.meta.get('url')
         item["processed"] = True
         item["source_url"] = response.meta.get('source_url')
@@ -239,8 +242,7 @@ class CosmosDBSpiderMixin(object):
         
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
         
-        if item:
-            self.container.upsert_item(item)
+        self.container.upsert_item(item)
         return item
 
 

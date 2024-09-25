@@ -136,8 +136,9 @@ class CosmosDBSpiderMixin(object):
         # Extract all hrefs from a tags with class 'event-card-link'
         links = selector_response.xpath("//a[contains(@class, 'event-card-link')]/@href").getall()
         for url in list(set(links)):
+            hash_key = response.meta.get('sheet_name') + url
             data = {
-                "id": hashlib.sha256(url.encode()).hexdigest(),
+                "id": hashlib.sha256(hash_key.encode()).hexdigest(),
                 "url": url,
                 "processed": False,
                 "source_url": response.meta.get('url'),
@@ -149,14 +150,13 @@ class CosmosDBSpiderMixin(object):
             except:
                 print(f"{bcolors.FAIL}Record already exists in cosmos: {url}{bcolors.ESCAPE}")
 
-        item["id"] = hashlib.sha256(response.meta.get('url').encode()).hexdigest()
+        hash_key = response.meta.get('sheet_name') + response.meta.get('url')
+        item["id"] = hashlib.sha256(hash_key.encode()).hexdigest()
         item["url"] = response.meta.get('url')
         item["processed"] = True
         item["sheet_name"] = response.meta.get('sheet_name')
 
-        if item:
-            self.container.upsert_item(item)
-            time.sleep(5)
+        self.container.upsert_item(item)
         return item
 
 

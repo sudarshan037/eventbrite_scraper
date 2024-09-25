@@ -159,8 +159,10 @@ class CosmosDBSpiderMixin(object):
         if response.status in [400, 403, 404]:
             print(f"{bcolors.FAIL}{response.status} Error: {response.url}{bcolors.ESCAPE}")
             # self.container.delete_item(item=item_id, partition_key=response.meta.get('sheet_name'))
+
+            hash_key = response.meta.get('sheet_name') + response.meta.get('url')
             item = {
-                "id": hashlib.sha256(response.meta.get('url').encode()).hexdigest(),
+                "id": hashlib.sha256(hash_key.encode()).hexdigest(),
                 "url": response.meta.get('url'),
                 "processed": True,
                 "source_url": response.meta.get('source_url'),
@@ -191,22 +193,23 @@ class CosmosDBSpiderMixin(object):
 
         body = self.driver.page_source
         selector_response = Selector(text=body)
-        item["id"] = hashlib.sha256(response.meta.get('url').encode()).hexdigest()
+
+        hash_key = response.meta.get('sheet_name') + response.meta.get('url')
+        item["id"] = hashlib.sha256(hash_key.encode()).hexdigest()
         item["url"] = response.meta.get('url')
         item["processed"] = True
         item["sheet_name"] = response.meta.get('sheet_name')
 
         item['event_name'] = selector_response.xpath("//h1[contains(@class, 'css-4rbku5') and contains(@class, 'css-901oao')]/text()").get()
         item['date'] = selector_response.xpath("//div[contains(@class, 'css-901oao') and contains(@class, 'r-1rmgsgu')]/span[contains(@class, 'css-16my406')]/text()").get()
-        item['location'] = selector_response.xpath("//div[contains(@class, 'css-1dbjc4n r-1awozwy r-18u37iz r-p1pxzi')]/div/div/div/span/text()").get()
+        item['location'] = selector_response.xpath("//div[contains(@class, 'css-1dbjc4n r-1awozwy r-18u37iz r-p1pxzi')]/div/div/div/span/text()").getll()
         item['organiser_name_1'] = selector_response.xpath("//div[contains(@class, 'css-901oao') and contains(@class, 'r-jwli3a') and contains(@class, 'r-ubezar')]/text()").get()
         item['organiser_name_2'] = selector_response.xpath("//div[contains(@class, 'css-1dbjc4n')]/div[contains(@class, 'css-901oao') and contains(@class, 'r-jwli3a')]/text()").get()
         item['followers_1'] = selector_response.xpath("//div[contains(@class, 'css-901oao') and contains(@class, 'r-1a7l8x0') and contains(@class, 'r-1b43r93')]/text()").get()
         item['followers_2'] = selector_response.xpath("//div[contains(@class, 'css-1dbjc4n')]/div[contains(@class, 'r-1a7l8x0') and contains(@class, 'r-1b43r93')]/text()").get()
         
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
-        if item:
-            self.container.upsert_item(item)
+        self.container.upsert_item(item)
         return item
 
 

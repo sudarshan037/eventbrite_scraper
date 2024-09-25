@@ -165,7 +165,7 @@ class CosmosDBSpiderMixin(object):
             return first_upcoming_event_link.get_attribute('href')
         
         except Exception as e:
-            print(f"{bcolors.HEADER}Upcoming Events section not found or no link present: {str(e)}{bcolors.ESCAPE}")
+            print(f"{bcolors.HEADER}Upcoming Events section not found or no link present{bcolors.ESCAPE}")
 
         try:
         # Check for the "Past Events" section if "Upcoming Events" wasn't found
@@ -178,7 +178,7 @@ class CosmosDBSpiderMixin(object):
             return first_past_event_link.get_attribute('href')
         
         except Exception as e:
-            print(f"{bcolors.HEADER}Past Events section not found or no link present: {str(e)}{bcolors.ESCAPE}")
+            print(f"{bcolors.HEADER}Past Events section not found or no link present{bcolors.ESCAPE}")
     
         return ""
 
@@ -190,8 +190,10 @@ class CosmosDBSpiderMixin(object):
         if response.status in [400, 403, 404]:
             print(f"{bcolors.FAIL}{response.status} Error: {response.url}{bcolors.ESCAPE}")
             # self.container.delete_item(item=item_id, partition_key=response.meta.get('sheet_name'))
+
+            hash_key = response.meta.get('sheet_name') + response.meta.get('url')
             item = {
-                "id": hashlib.sha256(response.meta.get('url').encode()).hexdigest(),
+                "id": hashlib.sha256(hash_key.encode()).hexdigest(),
                 "url": response.meta.get('url'),
                 "processed": True,
                 "event_url": f"ERROR: {str(response.status)}",
@@ -215,8 +217,10 @@ class CosmosDBSpiderMixin(object):
             # body = self.driver.page_source
             # selector_response = Selector(text=body)
             event_url = self.extract_first_link_by_event_type()
+
+            hash_key = response.meta.get('sheet_name') + event_url
             data = {
-                "id": hashlib.sha256(event_url.encode()).hexdigest(),
+                "id": hashlib.sha256(hash_key.encode()).hexdigest(),
                 "url": event_url,
                 "processed": False,
                 "source_url": response.meta.get('url'),
@@ -231,8 +235,9 @@ class CosmosDBSpiderMixin(object):
 
         except Exception as e:
             print(f"{bcolors.FAIL}Error processing {response.url}: {str(e)}{bcolors.ESCAPE}")
+            hash_key = response.meta.get('sheet_name') + response.meta.get('url')
             item = {
-                "id": hashlib.sha256(response.meta.get('url').encode()).hexdigest(),
+                "id": hashlib.sha256(hash_key.encode()).hexdigest(),
                 "url": response.meta.get('url'),
                 "processed": True,
                 "event_url": f"ERROR in processing URL",
@@ -240,15 +245,15 @@ class CosmosDBSpiderMixin(object):
             }
             self.container.upsert_item(item)
             return
-
-        item["id"] = hashlib.sha256(response.meta.get('url').encode()).hexdigest()
+        
+        hash_key = response.meta.get('sheet_name') + response.meta.get('url')
+        item["id"] = hashlib.sha256(hash_key.encode()).hexdigest()
         item["url"] = response.meta.get('url')
         item["processed"] = True
         item["sheet_name"] = response.meta.get('sheet_name')
 
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
-        if item:
-            self.container.upsert_item(item)
+        self.container.upsert_item(item)
         return item
         
 
