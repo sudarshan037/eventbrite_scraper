@@ -180,7 +180,7 @@ class CosmosDBSpiderMixin(object):
         except Exception as e:
             print(f"{bcolors.HEADER}Past Events section not found or no link present{bcolors.ESCAPE}")
     
-        return ""
+        return None
 
     def parse(self, response):
         print(f"{bcolors.OKGREEN}URL: {response.meta.get('url')}{bcolors.ESCAPE}")
@@ -217,6 +217,9 @@ class CosmosDBSpiderMixin(object):
             # body = self.driver.page_source
             # selector_response = Selector(text=body)
             event_url = self.extract_first_link_by_event_type()
+
+            if not event_url:
+                raise Exception
 
             hash_key = response.meta.get('sheet_name') + event_url
             data = {
