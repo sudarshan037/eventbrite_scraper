@@ -176,7 +176,6 @@ class CosmosDBSpiderMixin(object):
                 "followers": "",
             }
             self.container.upsert_item(item)
-            time.sleep(60)
             return
         
         elif response.status == 429:
