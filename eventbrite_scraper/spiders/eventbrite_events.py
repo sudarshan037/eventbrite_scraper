@@ -162,9 +162,9 @@ class CosmosDBSpiderMixin(object):
             print(f"{bcolors.FAIL}REDIRECTION: [{response.meta.get('url')}] -> [{response.url}]")
 
         if response.status == 400:
-            print(f"{bcolors.FAIL}{response.status} Error 404: {response.url}{bcolors.ESCAPE}")
+            print(f"{bcolors.FAIL}{response.status} Error 400: {response.url}{bcolors.ESCAPE}")
             self.driver.quit()
-            self._set_crawler(self.crawler)
+            self.driver = webdriver.Chrome(service=Service(self.chromedriver_path), options=self.chrome_options)
             return
 
         if response.status in [403, 404]:
@@ -280,23 +280,23 @@ class EventsSpider(CosmosDBSpiderMixin, Spider):
         versions = glob.glob(os.path.join(drivers_dir, "*"))
         latest_version = sorted(versions, key=os.path.getmtime)[-1]
 
-        chromedriver_path = os.path.join(latest_version, "chromedriver-linux64/chromedriver")
+        self.chromedriver_path = os.path.join(latest_version, "chromedriver-linux64/chromedriver")
 
-        if os.path.exists(chromedriver_path):
-            print(f"Using chromedriver at {chromedriver_path}")
+        if os.path.exists(self.chromedriver_path):
+            print(f"Using chromedriver at {self.chromedriver_path}")
             
             # Give the chromedriver file executable permissions
-            os.chmod(chromedriver_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+            os.chmod(self.chromedriver_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
         else:
-            print(f"Chromedriver not found at {chromedriver_path}")
+            print(f"Chromedriver not found at {self.chromedriver_path}")
             exit()
 
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")  # Ensure GUI is off
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
+        self.chrome_options = Options()
+        self.chrome_options.add_argument("--headless")  # Ensure GUI is off
+        self.chrome_options.add_argument("--no-sandbox")
+        self.chrome_options.add_argument("--disable-dev-shm-usage")
         # self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-        self.driver = webdriver.Chrome(service=Service(chromedriver_path), options=chrome_options)
+        self.driver = webdriver.Chrome(service=Service(self.chromedriver_path), options=self.chrome_options)
 
 
     def _set_crawler(self, crawler):
