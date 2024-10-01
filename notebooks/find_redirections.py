@@ -42,7 +42,7 @@ for url in tqdm(urls, desc=f"Uploading {len(urls)} URLs to {SCRAPER_NAME}"):
                 "redirected_url": response.url
             }
             df_redirection.append(data)
-            print(f"The URL '{secure_url}' redirects to '{response.url}'")
+            # print(f"The URL '{secure_url}' redirects to '{response.url}'")
     except requests.RequestException as e:
         print(f"An error occurred: {secure_url} | {e}")
 

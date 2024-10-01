@@ -161,7 +161,11 @@ class CosmosDBSpiderMixin(object):
         if response.meta.get('url') != response.url:
             print(f"{bcolors.FAIL}REDIRECTION: [{response.meta.get('url')}] -> [{response.url}]")
 
-        if response.status in [400, 403, 404]:
+        if response.status == response.status:
+            self._set_crawler(self.crawler)
+            return
+
+        if response.status in [403, 404]:
             print(f"{bcolors.FAIL}{response.status} Error: {response.url}{bcolors.ESCAPE}")
             # self.container.delete_item(item=item_id, partition_key=response.meta.get('sheet_name'))
             hash_key = response.meta.get('sheet_name') + response.meta.get('url')
