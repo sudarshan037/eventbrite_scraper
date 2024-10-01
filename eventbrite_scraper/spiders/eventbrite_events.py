@@ -162,6 +162,8 @@ class CosmosDBSpiderMixin(object):
             print(f"{bcolors.FAIL}REDIRECTION: [{response.meta.get('url')}] -> [{response.url}]")
 
         if response.status == 400:
+            print(f"{bcolors.FAIL}{response.status} Error 404: {response.url}{bcolors.ESCAPE}")
+            self.driver.quit()
             self._set_crawler(self.crawler)
             return
 
