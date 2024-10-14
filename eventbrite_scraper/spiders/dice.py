@@ -1,4 +1,8 @@
+import os
+import stat
+import glob
 import time
+import platform
 import random
 import hashlib
 import scrapy
@@ -91,28 +95,26 @@ class CosmosDBSpiderMixin(object):
         random_offset = random.randrange(0, self.max_offset)
         print(f"random offset: {random_offset}")
         query = f"SELECT * FROM c WHERE c.processed = false OFFSET {random_offset} LIMIT 1"
-        try:
-            records = list(self.container.query_items(
-                query=query,
-                enable_cross_partition_query=True))
-        except CosmosHttpResponseError as e:
-            print("Error fetching conversation:", e)
-            records = None
-        # records = [{"url": "https://dice.fm/partner/announcement-3-band-link/event/kr3ap-portals-festival-2023-27th-may-earth-london-tickets"}]
+        # try:
+        #     records = list(self.container.query_items(
+        #         query=query,
+        #         enable_cross_partition_query=True))
+        # except CosmosHttpResponseError as e:
+        #     print("Error fetching conversation:", e)
+        #     records = None
+        records = [
+            {"url": "https://dice.fm/partner/announcement-3-band-link/event/kr3ap-portals-festival-2023-27th-may-earth-london-tickets", "sheet_name": "dice"},
+            {"url": "https://dice.fm/partner/stil-runnin/event/m8w7w-stil-runnin-w-redamancy-estin-the-86d-22nd-apr-the-coast-fort-collins-tickets", "sheet_name": "dice"}
+            ]
         
         if not records:
             return None
         
-        record = records[0]
+        record = random.choice(records)
         url = self.process_cosmos_db_record(record)
         
         if not url:
             return None
-        
-        # # Mark the record as processed
-        # if not record['processed']:
-        #     record['processed'] = True
-        #     self.container.upsert_item(record)
         
         output = scrapy.Request(
                     url=url,
@@ -151,17 +153,7 @@ class CosmosDBSpiderMixin(object):
         self.schedule_next_request()
 
     def parse(self, response):
-        if response.status == 404:
-            print(f"{bcolors.FAIL}404 Error: {response.url}{bcolors.ESCAPE}")
-            item_id = hashlib.sha256(response.url.encode()).hexdigest()
-            self.container.delete_item(item=item_id, partition_key=response.meta.get('sheet_name'))
-            return
-        
-        elif response.status == 429:
-            retry_after = int(response.headers.get('Retry-After', 60))
-            retry_after += 10
-            print(f"{bcolors.FAIL}Rate limited. Retrying after {retry_after} seconds.{bcolors.ESCAPE}")
-            time.sleep(retry_after)
+        self.driver = webdriver.Chrome(service=Service(self.chromedriver_path), options=self.chrome_options)
         item = DiceLink()
         item['event_link'] = response.url
         item["url"] = response.url
@@ -171,18 +163,18 @@ class CosmosDBSpiderMixin(object):
             wait = WebDriverWait(self.driver, 10)
             body = self.driver.page_source
             selenium_response = Selector(text=body)
-            item['event_name'] = response.xpath("//h1[@class='EventDetailsTitle__Title-sc-8ebcf47a-0 iLdkPz']/text()").get()
-            item['event_date'] = response.xpath("//div[contains(@class, 'EventDetailsBase__Highlight-sc-d40475af-0')]/div/span/text()").get()
-            item['organizer'] = response.xpath("//div[contains(@class, 'EventDetailsBase__Highlight-sc-d40475af-0')]/div/span/text()").get()
-            item['location'] = response.xpath("//div[@class='EventDetailsVenue__Address-sc-42637e02-5 cxsjwk']/span/text()").get()
+            item['event_name'] = selenium_response.xpath("//h1[@class='EventDetailsTitle__Title-sc-8ebcf47a-0 iLdkPz']/text()").get()
+            item['event_date'] = selenium_response.xpath("//div[contains(@class, 'EventDetailsBase__Highlight-sc-d40475af-0')]/div/span/text()").get()
+            item['organizer'] = selenium_response.xpath("//div[contains(@class, 'EventDetailsBase__Highlight-sc-d40475af-0')]/div/span/text()").get()
+            item['location'] = selenium_response.xpath("//div[@class='EventDetailsVenue__Address-sc-42637e02-5 cxsjwk']/span/text()").get()
         except Exception as e:
             print(f"{bcolors.FAIL}Error processing {response.url}: {str(e)}{bcolors.ESCAPE}")
         item["processed"] = True
         item["sheet_name"] = response.meta.get('sheet_name')
-        self.driver.quit()
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
-        if item:
-            self.container.upsert_item(item)
+        # if item:
+        #     self.container.upsert_item(item)
+        self.driver.quit()
         return item
         
 
@@ -205,11 +197,38 @@ class EventsSpider(CosmosDBSpiderMixin, Spider):
     def __init__(self, *args, **kwargs):
         super(EventsSpider, self).__init__(*args, **kwargs)
 
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")  # Ensure GUI is off
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        home_dir = os.path.expanduser("~")
+        current_os = platform.system()
+
+        if current_os == "Linux":
+            drivers_dir = f"{home_dir}/.wdm/drivers/chromedriver/linux64/"
+            chromedriver_subpath = "chromedriver-linux64/chromedriver"
+        elif current_os == "Darwin":  # macOS
+            drivers_dir = f"{home_dir}/.wdm/drivers/chromedriver/mac64/"
+            chromedriver_subpath = "chromedriver-mac-arm64/chromedriver"
+        else:
+            raise OSError(f"Unsupported OS: {current_os}")
+
+        versions = glob.glob(os.path.join(drivers_dir, "*"))
+        latest_version = sorted(versions, key=os.path.getmtime)[-1]
+
+        self.chromedriver_path = os.path.join(latest_version, chromedriver_subpath)
+
+        if os.path.exists(self.chromedriver_path):
+            print(f"Using chromedriver at {self.chromedriver_path}")
+            
+            # Give the chromedriver file executable permissions
+            os.chmod(self.chromedriver_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+        else:
+            print(f"Chromedriver not found at {self.chromedriver_path}")
+            exit()
+
+        self.chrome_options = Options()
+        # self.chrome_options.add_argument("--headless")  # Ensure GUI is off
+        self.chrome_options.add_argument("--no-sandbox")
+        self.chrome_options.add_argument("--disable-dev-shm-usage")
+        # self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        self.driver = webdriver.Chrome(service=Service(self.chromedriver_path), options=self.chrome_options)
 
 
     def _set_crawler(self, crawler):
