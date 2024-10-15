@@ -224,7 +224,7 @@ class EventsSpider(CosmosDBSpiderMixin, Spider):
             exit()
 
         self.chrome_options = Options()
-        # self.chrome_options.add_argument("--headless")  # Ensure GUI is off
+        self.chrome_options.add_argument("--headless")  # Ensure GUI is off
         self.chrome_options.add_argument("--no-sandbox")
         self.chrome_options.add_argument("--disable-dev-shm-usage")
         # self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)

@@ -2,6 +2,7 @@ import os
 import stat
 import glob
 import time
+import platform
 import random
 import hashlib
 import subprocess
@@ -276,11 +277,21 @@ class EventsSpider(CosmosDBSpiderMixin, Spider):
         super(EventsSpider, self).__init__(*args, **kwargs)
 
         home_dir = os.path.expanduser("~")
-        drivers_dir = f"{home_dir}/.wdm/drivers/chromedriver/linux64/"
+        current_os = platform.system()
+
+        if current_os == "Linux":
+            drivers_dir = f"{home_dir}/.wdm/drivers/chromedriver/linux64/"
+            chromedriver_subpath = "chromedriver-linux64/chromedriver"
+        elif current_os == "Darwin":  # macOS
+            drivers_dir = f"{home_dir}/.wdm/drivers/chromedriver/mac64/"
+            chromedriver_subpath = "chromedriver-mac-arm64/chromedriver"
+        else:
+            raise OSError(f"Unsupported OS: {current_os}")
+
         versions = glob.glob(os.path.join(drivers_dir, "*"))
         latest_version = sorted(versions, key=os.path.getmtime)[-1]
 
-        self.chromedriver_path = os.path.join(latest_version, "chromedriver-linux64/chromedriver")
+        self.chromedriver_path = os.path.join(latest_version, chromedriver_subpath)
 
         if os.path.exists(self.chromedriver_path):
             print(f"Using chromedriver at {self.chromedriver_path}")

@@ -1,4 +1,8 @@
+import os
+import stat
+import glob
 import time
+import platform
 import random
 import hashlib
 import scrapy
@@ -279,12 +283,38 @@ class EventsSpider(CosmosDBSpiderMixin, Spider):
     def __init__(self, *args, **kwargs):
         super(EventsSpider, self).__init__(*args, **kwargs)
 
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")  # Ensure GUI is off
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        home_dir = os.path.expanduser("~")
+        current_os = platform.system()
 
+        if current_os == "Linux":
+            drivers_dir = f"{home_dir}/.wdm/drivers/chromedriver/linux64/"
+            chromedriver_subpath = "chromedriver-linux64/chromedriver"
+        elif current_os == "Darwin":  # macOS
+            drivers_dir = f"{home_dir}/.wdm/drivers/chromedriver/mac64/"
+            chromedriver_subpath = "chromedriver-mac-arm64/chromedriver"
+        else:
+            raise OSError(f"Unsupported OS: {current_os}")
+
+        versions = glob.glob(os.path.join(drivers_dir, "*"))
+        latest_version = sorted(versions, key=os.path.getmtime)[-1]
+
+        self.chromedriver_path = os.path.join(latest_version, chromedriver_subpath)
+
+        if os.path.exists(self.chromedriver_path):
+            print(f"Using chromedriver at {self.chromedriver_path}")
+            
+            # Give the chromedriver file executable permissions
+            os.chmod(self.chromedriver_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+        else:
+            print(f"Chromedriver not found at {self.chromedriver_path}")
+            exit()
+
+        self.chrome_options = Options()
+        self.chrome_options.add_argument("--headless")  # Ensure GUI is off
+        self.chrome_options.add_argument("--no-sandbox")
+        self.chrome_options.add_argument("--disable-dev-shm-usage")
+        # self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        self.driver = webdriver.Chrome(service=Service(self.chromedriver_path), options=self.chrome_options)
 
     def _set_crawler(self, crawler):
         """
