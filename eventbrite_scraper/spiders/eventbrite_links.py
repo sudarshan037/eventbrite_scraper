@@ -159,8 +159,6 @@ class CosmosDBSpiderMixin(object):
 
         if response.status == 400:
             print(f"{bcolors.FAIL}{response.status} Error 400: {response.url}{bcolors.ESCAPE}")
-            self.driver.quit()
-            time.sleep(2)
             self.driver = webdriver.Chrome(service=Service(self.chromedriver_path), options=self.chrome_options)
             print(f"{bcolors.OKGREEN}Restarted ChromeDriver after 400 error.{bcolors.ESCAPE}")
             return
