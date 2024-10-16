@@ -3,7 +3,9 @@ import stat
 import glob
 import time
 import platform
+import random
 import hashlib
+import subprocess
 import scrapy
 from azure.cosmos.exceptions import CosmosHttpResponseError
 from scrapy import signals
@@ -27,6 +29,17 @@ import logging
 logging.getLogger('azure').setLevel(logging.CRITICAL)
 
 class CosmosDBSpiderMixin(object):
+    def __init__(self):
+        self.offset_flag = True
+        self.max_offset = 32
+        print(f"max_offset = {self.max_offset}")
+
+        self.USER_AGENTS = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/602.3.12 (KHTML, like Gecko) Version/10.1.2 Safari/602.3.12',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15',
+        ]
 
     """
     Mixin class to implement reading records from a Cosmos DB container.
@@ -75,7 +88,16 @@ class CosmosDBSpiderMixin(object):
 
         :rtype: scrapy.Request or None
         """
-        query = "SELECT * FROM c WHERE c.processed = false OFFSET 0 LIMIT 1"
+        if not self.offset_flag:
+            self.offset_flag = True
+            self.max_offset = self.max_offset//2
+            print(f"max_offset = {self.max_offset}")
+        if self.max_offset == 0:
+            random_offset = 0
+        else:
+            random_offset = random.randrange(0, self.max_offset)
+        print(f"random offset: {random_offset}")
+        query = f"SELECT * FROM c WHERE c.processed = false OFFSET {random_offset} LIMIT 1"
         try:
             records = list(self.container.query_items(query=query, enable_cross_partition_query=True))
         except CosmosHttpResponseError as e:
@@ -113,8 +135,14 @@ class CosmosDBSpiderMixin(object):
         
         req = self.next_request()
         if not req:
-            print("No records found, waiting for 120 seconds before trying again...")
-            time.sleep(120)
+            if self.max_offset <= 0:
+                print("No records found, waiting for 120 seconds before trying again...")
+                time.sleep(120)
+                self.max_offset = 8
+                self.offset_flag = True
+                print(f"max_offset: {self.max_offset}")
+            else:
+                self.offset_flag = False
         else:
             self.crawler.engine.crawl(req)
 
@@ -125,11 +153,24 @@ class CosmosDBSpiderMixin(object):
         self.schedule_next_request()
 
     def parse(self, response):
-        item = EventLink()
-
         print(f"{bcolors.OKGREEN}URL: {response.meta.get('url')}{bcolors.ESCAPE}")
         if response.meta.get('url') != response.url:
             print(f"{bcolors.FAIL}REDIRECTION: [{response.meta.get('url')}] -> [{response.url}]")
+
+        if response.status == 400:
+            print(f"{bcolors.FAIL}{response.status} Error 400: {response.url}{bcolors.ESCAPE}")
+            self.driver.quit()
+            self.driver = webdriver.Chrome(service=Service(self.chromedriver_path), options=self.chrome_options)
+            return
+        
+        elif response.status == 429:
+            retry_after = int(response.headers.get('Retry-After', 60))
+            retry_after += 10
+            print(f"{bcolors.FAIL}Rate limited. Retrying after {retry_after} seconds.{bcolors.ESCAPE}")
+            time.sleep(retry_after)
+            return
+        
+        item = EventLink()
 
         self.driver.get(response.url)
         wait = WebDriverWait(self.driver, 10)
