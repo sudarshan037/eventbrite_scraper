@@ -35,16 +35,14 @@ class EventItem(scrapy.Item):
 
 class DiceLink(scrapy.Item):
     id = scrapy.Field()
-    links = scrapy.Field()
+    url = scrapy.Field()
     processed = scrapy.Field()
     sheet_name = scrapy.Field()
 
-    url = scrapy.Field()
-    event_link = scrapy.Field()
     event_name = scrapy.Field()
-    event_date = scrapy.Field()
-    organizer = scrapy.Field()
+    date = scrapy.Field()
     location = scrapy.Field()
+    organiser_name = scrapy.Field()
     
 
 class ShotgunLink(scrapy.Item):
