@@ -65,3 +65,25 @@ class ShotgunEvents(scrapy.Item):
     followers_2 = scrapy.Field()
     organiser_name_1 = scrapy.Field()
     organiser_name_2 = scrapy.Field()
+
+
+
+class RALink(scrapy.Item):
+    id = scrapy.Field()
+    url = scrapy.Field()
+    processed = scrapy.Field()
+    sheet_name = scrapy.Field()
+
+class RAEvents(scrapy.Item):
+    id = scrapy.Field()
+    url = scrapy.Field()
+    processed = scrapy.Field()
+    source_url = scrapy.Field()
+    sheet_name = scrapy.Field()
+
+    event_name = scrapy.Field()
+    date = scrapy.Field()
+    promotor = scrapy.Field()
+    venue = scrapy.Field()
+    cost = scrapy.Field()
+    organiser_name = scrapy.Field()
