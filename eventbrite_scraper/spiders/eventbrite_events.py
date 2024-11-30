@@ -7,6 +7,7 @@ import random
 import hashlib
 import subprocess
 import scrapy
+from selenium.common.exceptions import TimeoutException
 from azure.cosmos.exceptions import CosmosHttpResponseError
 from scrapy import signals
 from scrapy.exceptions import DontCloseSpider
@@ -197,8 +198,13 @@ class CosmosDBSpiderMixin(object):
             return
         
         item = EventItem()
-
-        self.driver.get(response.url)
+        
+        try:
+            self.driver.get(response.url)
+        except TimeoutException:
+            print(f"{bcolors.FAIL}Timeout while loading {response.url}{bcolors.ESCAPE}")
+            time.sleep(60)
+            return None
         wait = WebDriverWait(self.driver, 10)
         # try:
         #     # press button 1
