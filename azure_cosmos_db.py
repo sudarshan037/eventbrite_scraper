@@ -102,12 +102,12 @@ class AzureCosmos:
             print("Error updating conversation:", e)
             return False
 
-    def delete_conversation(self, conversation_id):
+    def delete_conversation(self, conversation_id, partition_key):
         '''
         Deletes a conversation from the Cosmos DB by ID.
         '''
         try:
-            self.container.delete_item(item=conversation_id, partition_key=conversation_id)
+            self.container.delete_item(item=conversation_id, partition_key=partition_key)
             print("[INFO] Conversation deleted successfully")
             return True
         except CosmosHttpResponseError as e:
@@ -124,9 +124,9 @@ if __name__ == "__main__":
 
     azure_cosmos = AzureCosmos()
     # azure_cosmos.DATABASE_ID, azure_cosmos.CONTAINER_NAME = "Scraper", "eventBrite_links"
-    azure_cosmos.DATABASE_ID, azure_cosmos.CONTAINER_NAME = "Scraper", "eventBrite_links"
+    azure_cosmos.DATABASE_ID, azure_cosmos.CONTAINER_NAME = "Scraper", "eventbrite_events"
     azure_cosmos.container = azure_cosmos.initialize_cosmosdb()
-    print(azure_cosmos.fetch_one_record())
+    # print(azure_cosmos.fetch_one_record())
     # for url in urls:
     #     print(url)
     #     data = {
@@ -135,8 +135,8 @@ if __name__ == "__main__":
     #         "processed": False
     #     }
     #     azure_cosmos.create_conversation(conversation_data=data)
-    sheet_name = "Internal Dating Batch 2 - Singles"
-    query = f"SELECT * FROM c WHERE c.processed=true AND c.sheet_name='{sheet_name}'"
+    sheet_name = "Event Categorisation V1 - Sheet1"
+    query = f"SELECT * FROM c WHERE c.sheet_name='{sheet_name}'"
     try:
         items = list(azure_cosmos.container.query_items(
             query=query,
@@ -145,6 +145,6 @@ if __name__ == "__main__":
         print("Error fetching conversation:", e)
     for item in items:
         print(item)
-        break
+        azure_cosmos.delete_conversation(item["id"], sheet_name)
     #     item["links"] = "first"
     #     azure_cosmos.container.upsert_item(item)
