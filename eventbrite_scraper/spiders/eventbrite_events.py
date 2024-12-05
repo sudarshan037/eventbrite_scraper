@@ -203,7 +203,6 @@ class CosmosDBSpiderMixin(object):
             self.driver.get(response.url)
         except TimeoutException:
             print(f"{bcolors.FAIL}Timeout while loading {response.url}{bcolors.ESCAPE}")
-            time.sleep(60)
             self.driver.quit()
             self.driver = webdriver.Chrome(service=Service(self.chromedriver_path), options=self.chrome_options)
             return None
@@ -262,6 +261,8 @@ class CosmosDBSpiderMixin(object):
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
         
         self.container.upsert_item(item)
+        self.driver.quit()
+        self.driver = webdriver.Chrome(service=Service(self.chromedriver_path), options=self.chrome_options)
         return item
 
 
