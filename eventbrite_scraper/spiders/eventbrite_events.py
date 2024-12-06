@@ -191,20 +191,32 @@ class CosmosDBSpiderMixin(object):
             return
         
         elif response.status == 429:
-            retry_after = int(response.headers.get('Retry-After', 60))
-            retry_after += 10
+            retry_after = int(response.headers.get('Retry-After', 10))
+            retry_after = min(retry_after + random.randint(1, 5), 60)
             print(f"{bcolors.FAIL}Rate limited. Retrying after {retry_after} seconds.{bcolors.ESCAPE}")
             time.sleep(retry_after)
             return
         
         item = EventItem()
-        
+
+        MAX_RETRIES = 3
+        for attempt in range(MAX_RETRIES):
+            try:
+                self.driver.get(response.url)
+                break
+            except TimeoutException:
+                print(f"{bcolors.FAIL}Timeout while loading {response.url}{bcolors.ESCAPE}\nRetry {attempt+1}/{MAX_RETRIES}")
+                if attempt == MAX_RETRIES - 1:
+                    return
+
+        wait = WebDriverWait(self.driver, 20)
         try:
-            self.driver.get(response.url)
+            wait.until(
+                EC.presence_of_all_elements_located((By.TAG_NAME, 'body'))
+            )
         except TimeoutException:
-            print(f"{bcolors.FAIL}Timeout while loading {response.url}{bcolors.ESCAPE}")
-            return None
-        wait = WebDriverWait(self.driver, 10)
+            print(f"{bcolors.FAIL}Page failed to load completely. Trying again...: {response.url}{bcolors.ESCAPE}")
+            return
         # try:
         #     # press button 1
         #     button1_text = 'View event'
@@ -237,7 +249,7 @@ class CosmosDBSpiderMixin(object):
                 "followers": "",
             }
             self.container.upsert_item(item)
-            return None
+            return
 
         body = self.driver.page_source
         selector_response = Selector(text=body)
@@ -261,7 +273,7 @@ class CosmosDBSpiderMixin(object):
         self.container.upsert_item(item)
         self.driver.quit()
         self.driver = webdriver.Chrome(service=Service(self.chromedriver_path), options=self.chrome_options)
-        return item
+        return
 
 
 class EventsSpider(CosmosDBSpiderMixin, Spider):
@@ -313,6 +325,10 @@ class EventsSpider(CosmosDBSpiderMixin, Spider):
         self.chrome_options.add_argument("--headless")  # Ensure GUI is off
         self.chrome_options.add_argument("--no-sandbox")
         self.chrome_options.add_argument("--disable-dev-shm-usage")
+        self.chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+        self.chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        self.chrome_options.add_experimental_option("useAutomationExtension", False)
+
         # self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
         self.driver = webdriver.Chrome(service=Service(self.chromedriver_path), options=self.chrome_options)
 
