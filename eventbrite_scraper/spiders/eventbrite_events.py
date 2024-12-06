@@ -205,6 +205,8 @@ class CosmosDBSpiderMixin(object):
                 self.driver.get(response.url)
                 break
             except TimeoutException:
+                with open("timeout_page_1.html", "w", encoding="utf-8") as f:
+                    f.write(self.driver.page_source)
                 print(f"{bcolors.FAIL}Timeout while loading {response.url}{bcolors.ESCAPE}\nRetry {attempt+1}/{MAX_RETRIES}")
                 if attempt == MAX_RETRIES - 1:
                     return
@@ -215,6 +217,8 @@ class CosmosDBSpiderMixin(object):
                 EC.presence_of_all_elements_located((By.TAG_NAME, 'body'))
             )
         except TimeoutException:
+            with open("timeout_page_2.html", "w", encoding="utf-8") as f:
+                f.write(self.driver.page_source)
             print(f"{bcolors.FAIL}Page failed to load completely. Trying again...: {response.url}{bcolors.ESCAPE}")
             return
         # try:
