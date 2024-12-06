@@ -37,7 +37,7 @@ LOGGING = {
 LOG_ENABLED = True  # Enable logging (default: True)
 LOG_LEVEL = 'INFO'  # Set the logging level ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
 LOG_FILE = 'scrapy.log'  # Log to a file instead of the console (optional)
-LOG_STDOUT = True  # Redirect stdout (e.g., print statements) to Scrapy log
+LOG_STDOUT = False  # Redirect stdout (e.g., print statements) to Scrapy log
 
 
 FEEDS = {
