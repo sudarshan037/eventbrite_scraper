@@ -211,7 +211,8 @@ class CosmosDBSpiderMixin(object):
                 if attempt == MAX_RETRIES - 1:
                     return
 
-        wait = WebDriverWait(self.driver, 20)
+        wait = WebDriverWait(self.driver, 10)
+
         try:
             wait.until(
                 EC.presence_of_all_elements_located((By.TAG_NAME, 'body'))
@@ -221,6 +222,7 @@ class CosmosDBSpiderMixin(object):
                 f.write(self.driver.page_source)
             print(f"{bcolors.FAIL}Page failed to load completely. Trying again...: {response.url}{bcolors.ESCAPE}")
             return
+        
         # try:
         #     # press button 1
         #     button1_text = 'View event'
@@ -329,9 +331,6 @@ class EventsSpider(CosmosDBSpiderMixin, Spider):
         self.chrome_options.add_argument("--headless")  # Ensure GUI is off
         self.chrome_options.add_argument("--no-sandbox")
         self.chrome_options.add_argument("--disable-dev-shm-usage")
-        self.chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-        self.chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        self.chrome_options.add_experimental_option("useAutomationExtension", False)
 
         # self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
         self.driver = webdriver.Chrome(service=Service(self.chromedriver_path), options=self.chrome_options)
