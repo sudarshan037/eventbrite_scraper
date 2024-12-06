@@ -199,7 +199,7 @@ class CosmosDBSpiderMixin(object):
         
         item = EventItem()
 
-        MAX_RETRIES = 3
+        MAX_RETRIES = 2
         for attempt in range(MAX_RETRIES):
             try:
                 self.driver.get(response.url)
@@ -213,15 +213,15 @@ class CosmosDBSpiderMixin(object):
 
         wait = WebDriverWait(self.driver, 10)
 
-        try:
-            wait.until(
-                EC.presence_of_all_elements_located((By.TAG_NAME, 'body'))
-            )
-        except TimeoutException:
-            with open("timeout_page_2.html", "w", encoding="utf-8") as f:
-                f.write(self.driver.page_source)
-            print(f"{bcolors.FAIL}Page failed to load completely. Trying again...: {response.url}{bcolors.ESCAPE}")
-            return
+        # try:
+        #     wait.until(
+        #         EC.presence_of_all_elements_located((By.TAG_NAME, 'body'))
+        #     )
+        # except TimeoutException:
+        #     with open("timeout_page_2.html", "w", encoding="utf-8") as f:
+        #         f.write(self.driver.page_source)
+        #     print(f"{bcolors.FAIL}Page failed to load completely. Trying again...: {response.url}{bcolors.ESCAPE}")
+        #     return
         
         # try:
         #     # press button 1
