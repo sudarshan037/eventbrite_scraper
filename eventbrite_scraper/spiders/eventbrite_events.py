@@ -203,8 +203,6 @@ class CosmosDBSpiderMixin(object):
             self.driver.get(response.url)
         except TimeoutException:
             print(f"{bcolors.FAIL}Timeout while loading {response.url}{bcolors.ESCAPE}")
-            self.driver.quit()
-            self.driver = webdriver.Chrome(service=Service(self.chromedriver_path), options=self.chrome_options)
             return None
         wait = WebDriverWait(self.driver, 10)
         # try:
