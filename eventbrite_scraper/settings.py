@@ -63,8 +63,8 @@ DOWNLOAD_DELAY = 0.5
 # AUTOTHROTTLE_MAX_DELAY = 60   # Maximum download delay
 
 # The download delay setting will honor only one of:
-CONCURRENT_REQUESTS = 16
-CONCURRENT_REQUESTS_PER_DOMAIN = 8
+# CONCURRENT_REQUESTS = 1
+CONCURRENT_REQUESTS_PER_DOMAIN = 1
 CONCURRENT_REQUESTS_PER_IP = 1
 
 DUPEFILTER_CLASS = 'scrapy.dupefilters.BaseDupeFilter'
