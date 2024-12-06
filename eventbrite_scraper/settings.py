@@ -12,8 +12,6 @@ BOT_NAME = "eventbrite_scraper"
 SPIDER_MODULES = ["eventbrite_scraper.spiders"]
 NEWSPIDER_MODULE = "eventbrite_scraper.spiders"
 
-LOG_LEVEL = "INFO"
-
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -35,6 +33,12 @@ LOGGING = {
         },
     },
 }
+
+LOG_ENABLED = True  # Enable logging (default: True)
+LOG_LEVEL = 'INFO'  # Set the logging level ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
+LOG_FILE = 'scrapy.log'  # Log to a file instead of the console (optional)
+LOG_STDOUT = False  # Redirect stdout (e.g., print statements) to Scrapy log
+
 
 FEEDS = {
     "data/%(name)s/%(name)s_%(time)s.json": {"format": "json"}
