@@ -20,6 +20,8 @@ container = database.get_container_client(COSMOS_DB_CONTAINER)
 offset_flag = True
 max_offset = 32
 
+t1 = time.perf_counter()
+
 while True:
     if not offset_flag:
         offset_flag = True
@@ -41,10 +43,19 @@ while True:
         print("Error fetching conversation:", e)
         records = None
 
-    records = [{
-        "url": "https://dice.fm/partner/mailchimp/event/dx3oe-this-railyards-ft-chris-lake-vnssa-17th-sep-the-railyards-sacramento-tickets",
-        "sheet_name": "DICE Partner Links - Sheet3"
-    }]
+    # records = [{
+    #     "url": "https://dice.fm/partner/mailchimp/event/dx3oe-this-railyards-ft-chris-lake-vnssa-17th-sep-the-railyards-sacramento-tickets",
+    #     "sheet_name": "DICE Partner Links - Sheet3"
+    # },
+    # {
+    #     "url": "https://dice.fm/partner/la-boule-noire/event/qbopa-ckraft-14th-nov-la-boule-noire-paris-tickets",
+    #     "sheet_name": "DICE Partner Links - Sheet3"
+    # },
+    # {
+    #     "url": "https://dice.fm/partner/-la-folie/event/229qp-future-is-steffi-rachel-noon-rag-pepiita-10th-apr-la-folie-paris-tickets",
+    #     "sheet_name": "DICE Partner Links - Sheet3"
+    # }
+    # ]
 
     if records:
         record = records[0]
@@ -86,19 +97,14 @@ while True:
         item['location'] = page.query_selector("//div[@class='EventDetailsVenue__Address-sc-42637e02-5 cxsjwk']/span")
         item['location'] = item['location'].inner_text() if item['location'] else ""
 
-        locator = page.locator(
-            "(//div[contains(@class, 'EventDetailsBase__Highlight-sc-d40475af-0')]//svg/path[contains(@d, 'M8.5 14.5h-3v-5h5m-2 5v4m0-4h2m0 0 7 4v-13l-7 4m0 5v-5m9 1v3')]/parent::svg/following-sibling::div/span)"
-        ).inner_text()
-        print(locator)
-
-        organiser_name_element = page.query_selector("(//div[contains(@class, 'EventDetailsBase__Highlight-sc-d40475af-0')]/div/span)[3]")
-        print(organiser_name_element)
-        # If the organiser name element is found, extract its text, else set to empty string
+        organiser_name_element = page.query_selector("//div[contains(@class, 'EventDetailsBase__Highlight-sc-d40475af-0')][.//span[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'pr')]]/div/span")
         if organiser_name_element and organiser_name_element.inner_text().strip():
             item['organiser_name'] = organiser_name_element.inner_text().strip()
         else:
             item['organiser_name'] = ""
 
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
-        # container.upsert_item(item)
-        break
+        container.upsert_item(item)
+
+t2 = time.perf_counter()
+print(f"Elapsed time: {t2-t1} seconds")
