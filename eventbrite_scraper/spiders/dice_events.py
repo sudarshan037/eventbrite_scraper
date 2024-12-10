@@ -191,10 +191,10 @@ class CosmosDBSpiderMixin(object):
         item["sheet_name"] = response.meta.get('sheet_name')
 
         item['event_name'] = splash_response.xpath("//h1[@class='EventDetailsTitle__Title-sc-8ebcf47a-0 iLdkPz']/text()").get()
-        item['date'] = splash_response.xpath("//div[contains(@class, 'EventDetailsBase__Highlight-sc-d40475af-0')]/div/span/text()").get()
+        item['date'] = splash_response.xpath("//div[contains(@class, 'EventDetailsTitle__Date-sc-8ebcf47a-2')]/text()").get()
         item['location'] = splash_response.xpath("//div[@class='EventDetailsVenue__Address-sc-42637e02-5 cxsjwk']/span/text()").get()
-        item['organiser_name'] = splash_response.xpath("//div[contains(@class, 'EventDetailsBase__Highlight-sc-d40475af-0')]/div/span/text()").get()
-        
+        item['organiser_name'] = splash_response.xpath("//div[contains(@class, 'EventDetailsBase__Highlight-sc-d40475af-0')]/svg/following-sibling::div/span[2]/text()").get()
+                
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
 
         self.container.upsert_item(item)
