@@ -70,8 +70,19 @@ while True:
         page = context.new_page()
         stealth_sync(page)  # Apply stealth mode
 
-        page.goto(url, wait_until="domcontentloaded")
-
+        try:
+            page.goto(url, wait_until="domcontentloaded")
+        except:
+            hash_key = sheet_name + url
+            item = {
+                "id": hashlib.sha256(hash_key.encode()).hexdigest(),
+                "url": url,
+                "processed": True,
+                "sheet_name": sheet_name,
+                "event_name": "REDIRECTION ERROR"
+            }
+            container.upsert_item(item)
+            continue
         # page.screenshot(path="screenshot_1.png")
         try:
             page.wait_for_selector("//h1[@class='EventDetailsTitle__Title-sc-8ebcf47a-0 iLdkPz']", timeout=5000)
