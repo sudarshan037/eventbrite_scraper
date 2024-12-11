@@ -21,8 +21,15 @@ offset_flag = True
 max_offset = 32
 
 t1 = time.perf_counter()
+count = 0
+total_count = 0
 
 while True:
+    if count and count%10==0:
+        t2 = time.perf_counter()
+        print(f"{count} records processed in {int(t2-t1)}sec. @ {int((t2-t1)/count)} sec/rec. Total: {total_count}")
+        t1 = time.perf_counter()
+        count = 0
     if not offset_flag:
         offset_flag = True
         max_offset = max_offset//2
@@ -44,15 +51,7 @@ while True:
         records = None
 
     # records = [{
-    #     "url": "https://dice.fm/partner/mailchimp/event/dx3oe-this-railyards-ft-chris-lake-vnssa-17th-sep-the-railyards-sacramento-tickets",
-    #     "sheet_name": "DICE Partner Links - Sheet3"
-    # },
-    # {
-    #     "url": "https://dice.fm/partner/la-boule-noire/event/qbopa-ckraft-14th-nov-la-boule-noire-paris-tickets",
-    #     "sheet_name": "DICE Partner Links - Sheet3"
-    # },
-    # {
-    #     "url": "https://dice.fm/partner/-la-folie/event/229qp-future-is-steffi-rachel-noon-rag-pepiita-10th-apr-la-folie-paris-tickets",
+    #     "url": "https://dice.fm/event/avngaq-rebel-rebel-pres-adiel-14th-dec-cieloterra-roma-tickets",
     #     "sheet_name": "DICE Partner Links - Sheet3"
     # }
     # ]
@@ -79,11 +78,11 @@ while True:
             page.wait_for_selector("//div[contains(@class, 'EventDetailsTitle__Date-sc-8ebcf47a-2')]", timeout=5000)
         except:
             print("Some items are not found")
-        # page.screenshot(path="screenshot_2.png")
-        
+
         hash_key = sheet_name + url
         item = {}
         item["id"] = hashlib.sha256(hash_key.encode()).hexdigest()
+        # page.screenshot(path=f"screenshot_{item['id']}.png")
         item["url"] = url
         item["processed"] = True
         item["sheet_name"] = sheet_name
@@ -101,10 +100,14 @@ while True:
         if organiser_name_element and organiser_name_element.inner_text().strip():
             item['organiser_name'] = organiser_name_element.inner_text().strip()
         else:
-            item['organiser_name'] = ""
+            organiser_name_element = page.query_selector("(//div[contains(@class, 'EventDetailsBase__Highlight-sc-d40475af-0')]/div/span)[2]")
+            if organiser_name_element and organiser_name_element.inner_text().strip():
+                item['organiser_name'] = organiser_name_element.inner_text().strip()
+            else:
+                item['organiser_name'] = ""
 
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
         container.upsert_item(item)
 
-t2 = time.perf_counter()
-print(f"Elapsed time: {t2-t1} seconds")
+        count += 1
+        total_count += 1
