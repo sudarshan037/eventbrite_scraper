@@ -27,7 +27,7 @@ total_count = 0
 while True:
     if count and count%10==0:
         t2 = time.perf_counter()
-        print(f"{count} records processed in {int(t2-t1)}sec. @ {int((t2-t1)/count)} sec/rec. Total: {total_count}")
+        print(f"{bcolors.WARNING}TOTAL: {total_count} |---| {count} records processed in {int(t2-t1)}sec. @ {int((t2-t1)/count)} sec/rec.{bcolors.ESCAPE}")
         t1 = time.perf_counter()
         count = 0
     if not offset_flag:
