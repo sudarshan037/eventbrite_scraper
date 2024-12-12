@@ -9,91 +9,19 @@ import pandas as pd
 from azure.cosmos import CosmosClient
 from eventbrite_scraper.utils import bcolors
 
-records = [    {
-            "url": "https://dice.fm/partner/-la-folie/event/229qp-future-is-steffi-rachel-noon-rag-pepiita-10th-apr-la-folie-paris-tickets",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        },
-        {
-            "url": "https://dice.fm/partner/23-meadow-llc-dba-the-monarch-new-york/event/rxgby-hulderspitemorbid-romance-3rd-dec-the-kingsland-new-york-tickets",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        },
-        {
-            "url": "https://dice.fm/partner/3615/event/9gww9",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        },
-        {
-            "url": "https://dice.fm/partner/agenda-web/event/3a2ml-lescop-15th-mar-rock-school-barbey-bordeaux-tickets",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        },
-        {
-            "url": "https://dice.fm/partner/agenda-web/event/a39v2-nick-waterhouse-21st-nov-rock-school-barbey-bordeaux-tickets",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        },
-        {
-            "url": "https://dice.fm/partner/all-nighters/event/2d32p-los-fresones-rebeldes-1st-apr-el-sol-madrid-tickets",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        },
-        {
-            "url": "https://dice.fm/partner/antidote-booking/event/lv8pw",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        },
-        {
-            "url": "https://dice.fm/partner/association-orizon-sud/event/r5v3q-treize-carats-2nd-apr-le-makeda-marseille-tickets",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        },
-        {
-            "url": "https://dice.fm/partner/cha-chdiversica-media-sl/event/3ew38-la-discoteca-1st-jul-sala-coco-madrid-tickets",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        },
-        {
-            "url": "https://dice.fm/partner/cult-of-ya---eur/event/o8xnm-haon-berlin-8th-apr-columbia-theater-berlin-tickets",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        },
-        {
-            "url": "https://dice.fm/partner/dem-lancio-primi-artisti/event/wyvbn-spring-attitude-festival-abbonamento-2022-16th-sep-studi-di-cinecitt-roma-tickets",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        },
-        {
-            "url": "https://dice.fm/partner/dice/event/2wro7o-black-lotus-halloween-night-2-31st-oct-secret-location-m",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        },
-        {
-            "url": "https://dice.fm/partner/dice/event/2xxm6-chaos-theory-festival-2023-day-3-4th-mar-signature-brew-blackhorse-road-london-tickets",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        },
-        {
-            "url": "https://dice.fm/partner/dice/event/3db6x-a-place-to-bury-strangers-teatro-perla-25th-mar-cinema-perla-bologna-tickets",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        },
-        {
-            "url": "https://dice.fm/partner/dice/event/3e9q8-a-dark-summer-garden-party-30th-jul-once-at-boynton-yards-somerville-tickets",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        },
-        {
-            "url": "https://dice.fm/partner/dice/event/57mxy-the-warm-up-block-party-ft-desert-hearts-takeover-18th-jun-marrs-building-sacramento-tickets",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        },
-        {
-            "url": "https://dice.fm/partner/dice/event/5addl-walking-memories-29th-oct-artificerie-almagi-ravenna-tickets",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        },
-        {
-            "url": "https://dice.fm/partner/dice/event/5qndy-slow-dance-presents-yaang-31st-mar-dream-bags-jaguar-shoes-london-tickets",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        },
-        {
-            "url": "https://dice.fm/partner/mailchimp/event/dx3oe-this-railyards-ft-chris-lake-vnssa-17th-sep-the-railyards-sacramento-tickets",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        },
-        {
-            "url": "https://dice.fm/partner/la-boule-noire/event/qbopa-ckraft-14th-nov-la-boule-noire-paris-tickets",
-            "sheet_name": "DICE Partner Links - Sheet3"
-        }
-    ]
+COSMOS_DB_URI = "https://cosmos-scraper.documents.azure.com:443/"
+COSMOS_DB_KEY = "bBgVEeSnEQaSss88e8zZU5pjpiVzPjba5qpe6alFqU548KcW2eMkCeUf7J99RWVUPw6ASV32W8pGACDb5ZhxrA=="
+COSMOS_DB_DATABASE = "Scraper"
+COSMOS_DB_CONTAINER = "dice_events"
+
+client = CosmosClient(COSMOS_DB_URI, COSMOS_DB_KEY)
+database = client.get_database_client(COSMOS_DB_DATABASE)
+container = database.get_container_client(COSMOS_DB_CONTAINER)
 
 async def process_page(url, sheet_name):
+    print(f"{bcolors.OKGREEN}OUTPUT: {item}{bcolors.ESCAPE}")
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)  # Use headless for faster processing
+        browser = await p.chromium.launch(headless=False)  # Use headless for faster processing
         context = await browser.new_context()
         page = await context.new_page()
 
@@ -101,31 +29,54 @@ async def process_page(url, sheet_name):
         await stealth_async(page)
 
         # Navigate to the URL
-        await page.goto(url, wait_until="domcontentloaded")
+        try:
+            await page.goto(url, wait_until="domcontentloaded")
+        except Exception as e:
+            print(f"Error navigating to {url}: {e}")
+            container.upsert_item({
+                "id": hashlib.sha256((sheet_name + url).encode()).hexdigest(),
+                "url": url,
+                "sheet_name": sheet_name,
+                "processed": False,
+                "error": f"Navigation error: {e}"
+            })
+            return
 
         try:
-            # Wait for selectors
             await page.wait_for_selector("//h1[@class='EventDetailsTitle__Title-sc-8ebcf47a-0 iLdkPz']", timeout=5000)
             await page.wait_for_selector("//div[contains(@class, 'EventDetailsTitle__Date-sc-8ebcf47a-2')]", timeout=5000)
             print(f"Items found on {url}")
         except Exception as e:
             print(f"Some items are not found for {url}: {e}")
 
-        # Screenshot
         hash_key = sheet_name + url
-        await page.screenshot(path=f"screenshot_{hashlib.sha256(hash_key.encode()).hexdigest()}.png")
+        item = {}
+        item["id"] = hashlib.sha256(hash_key.encode()).hexdigest()
+        item["url"] = url
+        item["processed"] = True
+        item["sheet_name"] = sheet_name
 
-        # Close the browser
-        await browser.close()
+        # await page.screenshot(path=f"screenshots/screenshot_{hashlib.sha256(hash_key.encode()).hexdigest()}.png")
 
-        # Log result
-        item = {
-            "id": hashlib.sha256(hash_key.encode()).hexdigest(),
-            "url": url,
-            "processed": True,
-            "sheet_name": sheet_name,
-        }
-        print(f"Processed: {item}")
+        # Safe data extraction
+        async def get_text(selector):
+            element = await page.query_selector(selector)
+            return await element.inner_text() if element else ""
+        
+        try:
+            item["event_name"] = await get_text("//h1[@class='EventDetailsTitle__Title-sc-8ebcf47a-0 iLdkPz']")
+            item["date"] = await get_text("//div[contains(@class, 'EventDetailsTitle__Date-sc-8ebcf47a-2')]")
+            item["location"] = await get_text("//div[@class='EventDetailsVenue__Address-sc-42637e02-5 cxsjwk']/span")
+            item["organiser_name"] = await get_text("//div[contains(@class, 'EventDetailsBase__Highlight-sc-d40475af-0')][.//span[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'pr')]]/div/span")
+            if not item["organiser_name"]:
+                item["organiser_name"] = await get_text("//div[contains(@class, 'EventDetailsBase__Highlight-sc-d40475af-0')]/div/span")
+
+            print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
+            container.upsert_item(item)
+        except Exception as e:
+            print(f"Error processing {url}: {e}")
+        finally:
+            await browser.close()
 
 async def process_urls_concurrently(records, max_workers=4):
     loop = asyncio.get_event_loop()
@@ -139,9 +90,38 @@ async def process_urls_concurrently(records, max_workers=4):
         ]
         await asyncio.gather(*tasks)
 
+def fetch_urls_for_vm(batch_size=100):
+    """Fetch a batch of unprocessed URLs and mark them as processing."""
+    query = f"SELECT * FROM c WHERE c.processed = false AND NOT IS_DEFINED(c.processing) OFFSET 0 LIMIT {batch_size}"
+    items = list(container.query_items(query=query, enable_cross_partition_query=True))
+    
+    # Lock items for processing
+    for item in items:
+        item['processing'] = True
+        container.upsert_item(item)
+    
+    return [{"url": item["url"], "sheet_name": item["sheet_name"]} for item in items]
+
+def fetch_unprocessed_urls(batch_size=100):
+    query = f"SELECT * FROM c WHERE c.processed = false AND NOT IS_DEFINED(c.processing) OFFSET 0 LIMIT {batch_size}"
+    items = list(container.query_items(query=query, enable_cross_partition_query=True))
+    
+    # Lock items for processing
+    for item in items:
+        item['processing'] = True
+        container.upsert_item(item)
+
+    return [{"url": item["url"], "sheet_name": item["sheet_name"]} for item in items]
+
+
 if __name__ == "__main__":
     t1 = time.perf_counter()
-    asyncio.run(process_urls_concurrently(records[:4], max_workers=2))
-    t2 = time.perf_counter()
-    print(f"Elapsed time: {t2 - t1} seconds")
 
+    records = fetch_unprocessed_urls(batch_size=50)
+    if records:
+        asyncio.run(process_urls_concurrently(records, max_workers=5))
+    else:
+        print("No unprocessed URLs found in CosmosDB.")
+
+    t2 = time.perf_counter()
+    print(f"{bcolors.FAIL}Elapsed time: {t2 - t1} seconds{bcolors.ESCAPE}")

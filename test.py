@@ -59,7 +59,7 @@ while True:
     if records:
         record = records[0]
     else:
-        break
+        continue
     url, sheet_name = record["url"], record["sheet_name"]
 
     print(url)
