@@ -19,7 +19,7 @@ database = client.get_database_client(COSMOS_DB_DATABASE)
 container = database.get_container_client(COSMOS_DB_CONTAINER)
 
 async def process_page(url, sheet_name):
-    print(f"{bcolors.OKGREEN}OUTPUT: {item}{bcolors.ESCAPE}")
+    print(f"{bcolors.OKGREEN}URL: {url}{bcolors.ESCAPE}")
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=False)  # Use headless for faster processing
         context = await browser.new_context()
@@ -28,35 +28,38 @@ async def process_page(url, sheet_name):
         # Apply stealth mode
         await stealth_async(page)
 
-        # Navigate to the URL
-        try:
-            await page.goto(url, wait_until="domcontentloaded")
-        except Exception as e:
-            print(f"Error navigating to {url}: {e}")
-            container.upsert_item({
-                "id": hashlib.sha256((sheet_name + url).encode()).hexdigest(),
-                "url": url,
-                "sheet_name": sheet_name,
-                "processed": False,
-                "error": f"Navigation error: {e}"
-            })
-            return
+        for attempt in range(3):
+            try:
+                await page.goto(url, wait_until="domcontentloaded")
+                break
+            except Exception as e:
+                if attempt == 2:  # Final attempt
+                    print(f"Error navigating to {url}: {e}")
+                    container.upsert_item({
+                        "id": hashlib.sha256((sheet_name + url).encode()).hexdigest(),
+                        "url": url,
+                        "sheet_name": sheet_name,
+                        "processed": False,
+                        "error": f"Navigation error: {e}"
+                    })
+                    return
 
         try:
             await page.wait_for_selector("//h1[@class='EventDetailsTitle__Title-sc-8ebcf47a-0 iLdkPz']", timeout=5000)
             await page.wait_for_selector("//div[contains(@class, 'EventDetailsTitle__Date-sc-8ebcf47a-2')]", timeout=5000)
             print(f"Items found on {url}")
         except Exception as e:
-            print(f"Some items are not found for {url}: {e}")
+            print(f"{bcolors.WARNING}Some items are not found for {url}: {e}{bcolors.ESCAPE}")
 
         hash_key = sheet_name + url
         item = {}
         item["id"] = hashlib.sha256(hash_key.encode()).hexdigest()
         item["url"] = url
         item["processed"] = True
+        item["processing"] = False
         item["sheet_name"] = sheet_name
 
-        # await page.screenshot(path=f"screenshots/screenshot_{hashlib.sha256(hash_key.encode()).hexdigest()}.png")
+        await page.screenshot(path=f"screenshots/screenshot_{hashlib.sha256(hash_key.encode()).hexdigest()}.png")
 
         # Safe data extraction
         async def get_text(selector):
@@ -78,50 +81,50 @@ async def process_page(url, sheet_name):
         finally:
             await browser.close()
 
-async def process_urls_concurrently(records, max_workers=4):
-    loop = asyncio.get_event_loop()
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        tasks = [
-            loop.run_in_executor(
-                executor,
-                lambda record=record: asyncio.run(process_page(record["url"], record["sheet_name"]))
-            )
-            for record in records
-        ]
+async def process_urls_concurrently(max_workers=4):
+    """Process URLs fetched from CosmosDB."""
+    while True:
+        # Fetch a batch of URLs for this VM
+        records = fetch_urls_for_vm(batch_size=5)
+        if not records:
+            print("No unprocessed URLs found. Exiting.")
+            break
+
+        semaphore = asyncio.Semaphore(max_workers)
+
+        async def process_with_semaphore(record):
+            async with semaphore:
+                await process_page(record["url"], record["sheet_name"])
+
+        # Create tasks with concurrency control
+        tasks = [process_with_semaphore(record) for record in records]
         await asyncio.gather(*tasks)
 
-def fetch_urls_for_vm(batch_size=100):
+        # with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        #     tasks = [asyncio.create_task(process_page(record["url"], record["sheet_name"])) for record in records]
+        #     await asyncio.gather(*tasks)
+
+def fetch_urls_for_vm(batch_size=100, vm_offset=1000):
     """Fetch a batch of unprocessed URLs and mark them as processing."""
-    query = f"SELECT * FROM c WHERE c.processed = false AND NOT IS_DEFINED(c.processing) OFFSET 0 LIMIT {batch_size}"
+    query = f"SELECT * FROM c WHERE c.processed = false AND NOT IS_DEFINED(c.processing) OFFSET {vm_offset} LIMIT {batch_size}"
     items = list(container.query_items(query=query, enable_cross_partition_query=True))
     
     # Lock items for processing
     for item in items:
         item['processing'] = True
-        container.upsert_item(item)
+        # container.upsert_item(item)
     
-    return [{"url": item["url"], "sheet_name": item["sheet_name"]} for item in items]
-
-def fetch_unprocessed_urls(batch_size=100):
-    query = f"SELECT * FROM c WHERE c.processed = false AND NOT IS_DEFINED(c.processing) OFFSET 0 LIMIT {batch_size}"
-    items = list(container.query_items(query=query, enable_cross_partition_query=True))
-    
-    # Lock items for processing
-    for item in items:
-        item['processing'] = True
-        container.upsert_item(item)
-
     return [{"url": item["url"], "sheet_name": item["sheet_name"]} for item in items]
 
 
 if __name__ == "__main__":
     t1 = time.perf_counter()
 
-    records = fetch_unprocessed_urls(batch_size=50)
-    if records:
-        asyncio.run(process_urls_concurrently(records, max_workers=5))
-    else:
-        print("No unprocessed URLs found in CosmosDB.")
+    try:
+        asyncio.run(process_urls_concurrently(max_workers=5))
+    except Exception as e:
+        import traceback
+        print(f"An error occurred: {traceback.format_exc()}")
 
     t2 = time.perf_counter()
     print(f"{bcolors.FAIL}Elapsed time: {t2 - t1} seconds{bcolors.ESCAPE}")
