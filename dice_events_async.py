@@ -8,7 +8,7 @@ import time
 import random
 import hashlib
 import pandas as pd
-from azure.cosmos import CosmosClient
+from azure.cosmos.aio import CosmosClient
 from eventbrite_scraper.utils import bcolors
 
 COSMOS_DB_URI = "https://cosmos-scraper.documents.azure.com:443/"
@@ -16,11 +16,13 @@ COSMOS_DB_KEY = "bBgVEeSnEQaSss88e8zZU5pjpiVzPjba5qpe6alFqU548KcW2eMkCeUf7J99RWV
 COSMOS_DB_DATABASE = "Scraper"
 COSMOS_DB_CONTAINER = "dice_events"
 
-client = CosmosClient(COSMOS_DB_URI, COSMOS_DB_KEY)
-database = client.get_database_client(COSMOS_DB_DATABASE)
-container = database.get_container_client(COSMOS_DB_CONTAINER)
+async def get_container():
+    client = CosmosClient(COSMOS_DB_URI, COSMOS_DB_KEY)
+    database = client.get_database_client(COSMOS_DB_DATABASE)
+    container = database.get_container_client(COSMOS_DB_CONTAINER)
+    return container
 
-async def process_page(url, sheet_name):
+async def process_page(container, url, sheet_name):
     print(f"{bcolors.OKGREEN}URL: {url}{bcolors.ESCAPE}")
     async with async_playwright() as p:
         browser = await p.chromium.launch(
@@ -47,7 +49,7 @@ async def process_page(url, sheet_name):
             except Exception as e:
                 if attempt == 2:  # Final attempt
                     print(f"Error navigating to {url}: {e}")
-                    container.upsert_item({
+                    await container.upsert_item({
                         "id": hashlib.sha256((sheet_name + url).encode()).hexdigest(),
                         "url": url,
                         "sheet_name": sheet_name,
@@ -86,7 +88,7 @@ async def process_page(url, sheet_name):
                 item["organiser_name"] = await get_text("//div[contains(@class, 'EventDetailsBase__Highlight-sc-d40475af-0')]/div/span")
 
             print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
-            container.upsert_item(item)
+            await container.upsert_item(item)
         except Exception as e:
             print(f"Error processing {url}: {e}")
         finally:
@@ -94,11 +96,12 @@ async def process_page(url, sheet_name):
 
 async def process_urls_concurrently(vm_offset, batch_size=100, max_workers=1, vm_name="local"):
     print(f"max_workers: {max_workers}")
+    container = await get_container()
     """Process URLs fetched from CosmosDB."""
     while True:
         t1_batch = time.perf_counter()
         # Fetch a batch of URLs for this VM
-        records = fetch_urls_for_vm(vm_offset=vm_offset, batch_size=batch_size, vm_name=vm_name)
+        records = await fetch_urls_for_vm(container, vm_offset=vm_offset, batch_size=batch_size, vm_name=vm_name)
         if not records:
             print("No unprocessed URLs found. Exiting.")
             break
@@ -107,7 +110,7 @@ async def process_urls_concurrently(vm_offset, batch_size=100, max_workers=1, vm
 
         async def process_with_semaphore(record):
             async with semaphore:
-                await process_page(record["url"], record["sheet_name"])
+                await process_page(container, record["url"], record["sheet_name"])
 
         # Create tasks with concurrency control
         tasks = [process_with_semaphore(record) for record in records]
@@ -116,15 +119,16 @@ async def process_urls_concurrently(vm_offset, batch_size=100, max_workers=1, vm
         t3_batch = time.perf_counter()
         print(f"{bcolors.FAIL}Records Fetch: {round(t2_batch-t1_batch, 2)} sec.\nBatch Scrapping: {round(t3_batch-t2_batch, 2)} sec.\nBatch Total: {round(t3_batch-t1_batch, 2)} sec.{bcolors.ESCAPE}")
 
-def fetch_urls_for_vm(vm_offset=0, batch_size=100, vm_name="local"):
+async def fetch_urls_for_vm(container, vm_offset=0, batch_size=100, vm_name="local"):
     """Fetch a batch of unprocessed URLs and mark them as processing."""
     query = f"SELECT * FROM c WHERE c.processed = false AND (NOT IS_DEFINED(c.processing) OR c.processing = '{vm_name}') OFFSET {vm_offset} LIMIT {batch_size}"
-    items = list(container.query_items(query=query, enable_cross_partition_query=True))
+    items = [item async for item in container.query_items(query=query)]
+
     
     # Lock items for processing
     for item in items:
         item['processing'] = vm_name
-        container.upsert_item(item)
+        await container.upsert_item(item)
     
     return [{"url": item["url"], "sheet_name": item["sheet_name"]} for item in items]
 
