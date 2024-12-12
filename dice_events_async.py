@@ -23,7 +23,17 @@ container = database.get_container_client(COSMOS_DB_CONTAINER)
 async def process_page(url, sheet_name):
     print(f"{bcolors.OKGREEN}URL: {url}{bcolors.ESCAPE}")
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)  # Use headless for faster processing
+        browser = await p.chromium.launch(
+            args=[
+                "--disable-extensions",
+                "--disable-background-networking",
+                "--disable-renderer-backgrounding",
+                "--disable-background-timer-throttling",
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+            ],
+            headless=False,
+        )  # Use headless for faster processing
         context = await browser.new_context()
         page = await context.new_page()
 
@@ -47,9 +57,8 @@ async def process_page(url, sheet_name):
                     return
 
         try:
-            await page.wait_for_selector("//h1[@class='EventDetailsTitle__Title-sc-8ebcf47a-0 iLdkPz']", timeout=5000)
-            await page.wait_for_selector("//div[contains(@class, 'EventDetailsTitle__Date-sc-8ebcf47a-2')]", timeout=5000)
-            print(f"Items found on {url}")
+            await page.wait_for_selector("//h1[@class='EventDetailsTitle__Title-sc-8ebcf47a-0 iLdkPz']", timeout=2000)
+            await page.wait_for_selector("//div[contains(@class, 'EventDetailsTitle__Date-sc-8ebcf47a-2')]", timeout=2000)
         except Exception as e:
             print(f"{bcolors.WARNING}Some items are not found for {url}: {e}{bcolors.ESCAPE}")
 
@@ -67,7 +76,7 @@ async def process_page(url, sheet_name):
         async def get_text(selector):
             element = await page.query_selector(selector)
             return await element.inner_text() if element else ""
-        
+
         try:
             item["event_name"] = await get_text("//h1[@class='EventDetailsTitle__Title-sc-8ebcf47a-0 iLdkPz']")
             item["date"] = await get_text("//div[contains(@class, 'EventDetailsTitle__Date-sc-8ebcf47a-2')]")
