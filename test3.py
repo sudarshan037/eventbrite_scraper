@@ -59,7 +59,7 @@ async def process_page(url, sheet_name):
         item["processing"] = False
         item["sheet_name"] = sheet_name
 
-        await page.screenshot(path=f"screenshots/screenshot_{hashlib.sha256(hash_key.encode()).hexdigest()}.png")
+        # await page.screenshot(path=f"screenshots/screenshot_{hashlib.sha256(hash_key.encode()).hexdigest()}.png")
 
         # Safe data extraction
         async def get_text(selector):
@@ -81,11 +81,12 @@ async def process_page(url, sheet_name):
         finally:
             await browser.close()
 
-async def process_urls_concurrently(max_workers=4):
+async def process_urls_concurrently(vm_offset, batch_size=100, max_workers=1):
     """Process URLs fetched from CosmosDB."""
     while True:
+        t1_batch = time.perf_counter()
         # Fetch a batch of URLs for this VM
-        records = fetch_urls_for_vm(batch_size=5)
+        records = fetch_urls_for_vm(vm_offset=vm_offset, batch_size=batch_size)
         if not records:
             print("No unprocessed URLs found. Exiting.")
             break
@@ -100,11 +101,10 @@ async def process_urls_concurrently(max_workers=4):
         tasks = [process_with_semaphore(record) for record in records]
         await asyncio.gather(*tasks)
 
-        # with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        #     tasks = [asyncio.create_task(process_page(record["url"], record["sheet_name"])) for record in records]
-        #     await asyncio.gather(*tasks)
+        t2_batch = time.perf_counter()
+        print(f"{bcolors.FAIL}Batch completed in {round(t2_batch-t1_batch, 2)} seconds{bcolors.ESCAPE}")
 
-def fetch_urls_for_vm(batch_size=100, vm_offset=1000):
+def fetch_urls_for_vm(vm_offset=0, batch_size=100):
     """Fetch a batch of unprocessed URLs and mark them as processing."""
     query = f"SELECT * FROM c WHERE c.processed = false AND NOT IS_DEFINED(c.processing) OFFSET {vm_offset} LIMIT {batch_size}"
     items = list(container.query_items(query=query, enable_cross_partition_query=True))
@@ -112,7 +112,7 @@ def fetch_urls_for_vm(batch_size=100, vm_offset=1000):
     # Lock items for processing
     for item in items:
         item['processing'] = True
-        # container.upsert_item(item)
+        container.upsert_item(item)
     
     return [{"url": item["url"], "sheet_name": item["sheet_name"]} for item in items]
 
@@ -121,7 +121,7 @@ if __name__ == "__main__":
     t1 = time.perf_counter()
 
     try:
-        asyncio.run(process_urls_concurrently(max_workers=5))
+        asyncio.run(process_urls_concurrently(vm_offset=1000, batch_size=100, max_workers=10))
     except Exception as e:
         import traceback
         print(f"An error occurred: {traceback.format_exc()}")
