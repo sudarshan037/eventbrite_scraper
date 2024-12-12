@@ -20,7 +20,7 @@ async def get_container():
     client = CosmosClient(COSMOS_DB_URI, COSMOS_DB_KEY)
     database = client.get_database_client(COSMOS_DB_DATABASE)
     container = database.get_container_client(COSMOS_DB_CONTAINER)
-    return container
+    return client, container
 
 async def process_page(container, url, sheet_name):
     print(f"{bcolors.OKGREEN}URL: {url}{bcolors.ESCAPE}")
@@ -53,7 +53,7 @@ async def process_page(container, url, sheet_name):
                         "id": hashlib.sha256((sheet_name + url).encode()).hexdigest(),
                         "url": url,
                         "sheet_name": sheet_name,
-                        "processed": False,
+                        "processed": True,
                         "error": f"Navigation error: {e}"
                     })
                     return
@@ -96,7 +96,7 @@ async def process_page(container, url, sheet_name):
 
 async def process_urls_concurrently(vm_offset, batch_size=100, max_workers=1, vm_name="local"):
     print(f"max_workers: {max_workers}")
-    container = await get_container()
+    client, container = await get_container()
     """Process URLs fetched from CosmosDB."""
     while True:
         t1_batch = time.perf_counter()
@@ -120,6 +120,7 @@ async def process_urls_concurrently(vm_offset, batch_size=100, max_workers=1, vm
 
         t3_batch = time.perf_counter()
         print(f"{bcolors.FAIL}Records Fetch: {round(t2_batch-t1_batch, 2)} sec.\nBatch Scrapping: {round(t3_batch-t2_batch, 2)} sec.\nBatch Total: {round(t3_batch-t1_batch, 2)} sec.{bcolors.ESCAPE}")
+    await client.close()
 
 async def fetch_urls_for_vm(container, vm_offset=0, batch_size=100, vm_name="local", max_workers=1):
     """Fetch a batch of unprocessed URLs and mark them as processing."""
