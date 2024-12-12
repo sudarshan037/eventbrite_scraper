@@ -1,4 +1,6 @@
 import asyncio
+import argparse
+import multiprocessing
 from concurrent.futures import ThreadPoolExecutor
 from playwright.async_api import async_playwright
 from playwright_stealth import stealth_async
@@ -81,12 +83,12 @@ async def process_page(url, sheet_name):
         finally:
             await browser.close()
 
-async def process_urls_concurrently(vm_offset, batch_size=100, max_workers=1):
+async def process_urls_concurrently(vm_offset, batch_size=100, max_workers=1, vm_name="local"):
     """Process URLs fetched from CosmosDB."""
     while True:
         t1_batch = time.perf_counter()
         # Fetch a batch of URLs for this VM
-        records = fetch_urls_for_vm(vm_offset=vm_offset, batch_size=batch_size)
+        records = fetch_urls_for_vm(vm_offset=vm_offset, batch_size=batch_size, vm_name=vm_name)
         if not records:
             print("No unprocessed URLs found. Exiting.")
             break
@@ -104,24 +106,38 @@ async def process_urls_concurrently(vm_offset, batch_size=100, max_workers=1):
         t2_batch = time.perf_counter()
         print(f"{bcolors.FAIL}Batch completed in {round(t2_batch-t1_batch, 2)} seconds{bcolors.ESCAPE}")
 
-def fetch_urls_for_vm(vm_offset=0, batch_size=100):
+def fetch_urls_for_vm(vm_offset=0, batch_size=100, vm_name="local"):
     """Fetch a batch of unprocessed URLs and mark them as processing."""
-    query = f"SELECT * FROM c WHERE c.processed = false AND NOT IS_DEFINED(c.processing) OFFSET {vm_offset} LIMIT {batch_size}"
+    query = f"SELECT * FROM c WHERE c.processed = false AND (NOT IS_DEFINED(c.processing) OR c.processing = '{vm_name}') OFFSET {vm_offset} LIMIT {batch_size}"
     items = list(container.query_items(query=query, enable_cross_partition_query=True))
     
     # Lock items for processing
     for item in items:
-        item['processing'] = True
+        item['processing'] = vm_name
         container.upsert_item(item)
     
     return [{"url": item["url"], "sheet_name": item["sheet_name"]} for item in items]
 
+def get_args():
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(description="Scraper script")
+    parser.add_argument("--vm_offset", type=int, default=1000, help="VM offset for processing URLs")
+    parser.add_argument("--batch_size", type=int, default=100, help="Number of URLs to process per batch")
+    parser.add_argument("--vm_name", type=str, default="local", help="Name of the VM used for processing flag")
+    
+    # Parse arguments and return them
+    return parser.parse_args()
 
 if __name__ == "__main__":
     t1 = time.perf_counter()
 
+    args = get_args()
+    # Determine the number of CPUs on the machine
+    num_cpus = multiprocessing.cpu_count()
+    print(f"Detected {num_cpus} CPUs on this machine.")
+
     try:
-        asyncio.run(process_urls_concurrently(vm_offset=1000, batch_size=100, max_workers=10))
+        asyncio.run(process_urls_concurrently(vm_offset=args.vm_offset, batch_size=args.batch_size, max_workers=num_cpus, vm_name=args.vm_name))
     except Exception as e:
         import traceback
         print(f"An error occurred: {traceback.format_exc()}")
