@@ -57,8 +57,8 @@ async def process_page(url, sheet_name):
                     return
 
         try:
-            await page.wait_for_selector("//h1[@class='EventDetailsTitle__Title-sc-8ebcf47a-0 iLdkPz']", timeout=2000)
-            await page.wait_for_selector("//div[contains(@class, 'EventDetailsTitle__Date-sc-8ebcf47a-2')]", timeout=2000)
+            await page.wait_for_selector("//h1[@class='EventDetailsTitle__Title-sc-8ebcf47a-0 iLdkPz']", timeout=5000)
+            await page.wait_for_selector("//div[contains(@class, 'EventDetailsTitle__Date-sc-8ebcf47a-2')]", timeout=5000)
         except Exception as e:
             print(f"{bcolors.WARNING}Some items are not found for {url}: {e}{bcolors.ESCAPE}")
 
@@ -93,6 +93,7 @@ async def process_page(url, sheet_name):
             await browser.close()
 
 async def process_urls_concurrently(vm_offset, batch_size=100, max_workers=1, vm_name="local"):
+    print(f"max_workers: {max_workers}")
     """Process URLs fetched from CosmosDB."""
     while True:
         t1_batch = time.perf_counter()
@@ -101,7 +102,7 @@ async def process_urls_concurrently(vm_offset, batch_size=100, max_workers=1, vm
         if not records:
             print("No unprocessed URLs found. Exiting.")
             break
-
+        t2_batch = time.perf_counter()
         semaphore = asyncio.Semaphore(max_workers)
 
         async def process_with_semaphore(record):
@@ -112,8 +113,8 @@ async def process_urls_concurrently(vm_offset, batch_size=100, max_workers=1, vm
         tasks = [process_with_semaphore(record) for record in records]
         await asyncio.gather(*tasks)
 
-        t2_batch = time.perf_counter()
-        print(f"{bcolors.FAIL}Batch completed in {round(t2_batch-t1_batch, 2)} seconds{bcolors.ESCAPE}")
+        t3_batch = time.perf_counter()
+        print(f"{bcolors.FAIL}Records Fetch: {round(t2_batch-t1_batch, 2)} sec.\nBatch Scrapping: {round(t3_batch-t2_batch, 2)} sec.\nBatch Total: {round(t3_batch-t1_batch, 2)} sec.{bcolors.ESCAPE}")
 
 def fetch_urls_for_vm(vm_offset=0, batch_size=100, vm_name="local"):
     """Fetch a batch of unprocessed URLs and mark them as processing."""
@@ -146,7 +147,7 @@ if __name__ == "__main__":
     print(f"Detected {num_cpus} CPUs on this machine.")
 
     try:
-        asyncio.run(process_urls_concurrently(vm_offset=args.vm_offset, batch_size=args.batch_size, max_workers=num_cpus, vm_name=args.vm_name))
+        asyncio.run(process_urls_concurrently(vm_offset=args.vm_offset, batch_size=args.batch_size, max_workers=num_cpus*2, vm_name=args.vm_name))
     except Exception as e:
         import traceback
         print(f"An error occurred: {traceback.format_exc()}")
