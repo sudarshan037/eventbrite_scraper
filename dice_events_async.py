@@ -126,6 +126,10 @@ async def fetch_urls_for_vm(container, vm_offset=0, batch_size=100, vm_name="loc
     query = f"SELECT * FROM c WHERE c.processed = false AND (NOT IS_DEFINED(c.processing) OR c.processing = '{vm_name}') OFFSET {vm_offset} LIMIT {batch_size}"
     items = [item async for item in container.query_items(query=query)]
 
+    if not items:
+        query = f"SELECT * FROM c WHERE c.processed = false AND (NOT IS_DEFINED(c.processing) OR c.processing = '{vm_name}') OFFSET 0 LIMIT {batch_size}"
+        items = [item async for item in container.query_items(query=query)]
+
     semaphore = asyncio.Semaphore(max_workers)
 
     async def upsert_with_semaphore(item):
