@@ -101,11 +101,13 @@ async def process_urls_concurrently(vm_offset, batch_size=100, max_workers=1, vm
     while True:
         t1_batch = time.perf_counter()
         # Fetch a batch of URLs for this VM
-        records = await fetch_urls_for_vm(container, vm_offset=vm_offset, batch_size=batch_size, vm_name=vm_name)
+        records = await fetch_urls_for_vm(container, vm_offset=vm_offset, batch_size=batch_size, vm_name=vm_name, max_workers=max_workers)
         if not records:
             print("No unprocessed URLs found. Exiting.")
             break
         t2_batch = time.perf_counter()
+        print(f"{bcolors.FAIL}Records Fetch: {round(t2_batch-t1_batch, 2)} sec.{bcolors.ESCAPE}")
+
         semaphore = asyncio.Semaphore(max_workers)
 
         async def process_with_semaphore(record):
@@ -119,16 +121,28 @@ async def process_urls_concurrently(vm_offset, batch_size=100, max_workers=1, vm
         t3_batch = time.perf_counter()
         print(f"{bcolors.FAIL}Records Fetch: {round(t2_batch-t1_batch, 2)} sec.\nBatch Scrapping: {round(t3_batch-t2_batch, 2)} sec.\nBatch Total: {round(t3_batch-t1_batch, 2)} sec.{bcolors.ESCAPE}")
 
-async def fetch_urls_for_vm(container, vm_offset=0, batch_size=100, vm_name="local"):
+async def fetch_urls_for_vm(container, vm_offset=0, batch_size=100, vm_name="local", max_workers=1):
     """Fetch a batch of unprocessed URLs and mark them as processing."""
     query = f"SELECT * FROM c WHERE c.processed = false AND (NOT IS_DEFINED(c.processing) OR c.processing = '{vm_name}') OFFSET {vm_offset} LIMIT {batch_size}"
     items = [item async for item in container.query_items(query=query)]
 
+    semaphore = asyncio.Semaphore(max_workers)
+
+    async def upsert_with_semaphore(item):
+        async with semaphore:
+            item['processing'] = vm_name
+            await container.upsert_item(item)
     
-    # Lock items for processing
-    for item in items:
-        item['processing'] = vm_name
-        await container.upsert_item(item)
+    # Lock items for processing concurrently with semaphore
+    tasks = [upsert_with_semaphore(item) for item in items]
+
+    # Run all tasks concurrently
+    await asyncio.gather(*tasks)
+    
+    # # Lock items for processing
+    # for item in items:
+    #     item['processing'] = vm_name
+    #     await container.upsert_item(item)
     
     return [{"url": item["url"], "sheet_name": item["sheet_name"]} for item in items]
 
