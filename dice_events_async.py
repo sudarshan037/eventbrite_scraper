@@ -127,8 +127,8 @@ async def fetch_urls_for_vm(container, vm_offset=0, batch_size=100, vm_name="loc
     query = f"SELECT * FROM c WHERE c.processed = false AND (NOT IS_DEFINED(c.processing) OR c.processing = '{vm_name}') OFFSET {vm_offset} LIMIT {batch_size}"
     items = [item async for item in container.query_items(query=query)]
 
-    if not items:
-        query = f"SELECT * FROM c WHERE c.processed = false AND (NOT IS_DEFINED(c.processing) OR c.processing = '{vm_name}') OFFSET 0 LIMIT {batch_size}"
+    if not items and vm_offset==0:
+        query = f"SELECT * FROM c WHERE c.processed = false OFFSET {vm_offset} LIMIT {batch_size//10}"
         items = [item async for item in container.query_items(query=query)]
 
     semaphore = asyncio.Semaphore(max_workers)
@@ -167,7 +167,7 @@ if __name__ == "__main__":
     args = get_args()
     # Determine the number of CPUs on the machine
     num_cpus = multiprocessing.cpu_count()
-    print(f"Detected {num_cpus} CPUs on this machine.")
+    print(f"Detected {num_cpus} CPUs on {args.vm_name}\nVM_OFFSET: {args.vm_offset}\nBATCH_SIZE: {args.batch_size}.")
 
     try:
         asyncio.run(process_urls_concurrently(vm_offset=args.vm_offset, batch_size=args.batch_size, max_workers=num_cpus*2, vm_name=args.vm_name))
