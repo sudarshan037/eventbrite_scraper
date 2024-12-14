@@ -57,6 +57,8 @@ async def process_page(container, url, sheet_name):
                         "error": f"Navigation error: {e}"
                     })
                     return
+                
+        hash_key = sheet_name + url
 
         try:
             await page.screenshot(path=f"screenshots/screenshot_{hashlib.sha256(hash_key.encode()).hexdigest()}_1.png")
