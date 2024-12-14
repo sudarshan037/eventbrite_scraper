@@ -35,9 +35,16 @@ async def process_page(container, url, sheet_name):
                 "--disable-dev-shm-usage",
             ],
             headless=False,
-        )  # Use headless for faster processing
+        )
         context = await browser.new_context()
         page = await context.new_page()
+
+        async def block_unwanted(route):
+            await route.abort()
+
+        await page.route("**/*.{png,jpg,jpeg,webp,gif,svg}", block_unwanted)  # Block images
+        await page.route("**/*.css", block_unwanted)  # Block CSS files
+        await page.route("**/*.{woff,woff2,ttf,otf}", block_unwanted)  # Block fonts
 
         # Apply stealth mode
         await stealth_async(page)
