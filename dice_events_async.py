@@ -59,10 +59,14 @@ async def process_page(container, url, sheet_name):
                     return
 
         try:
+            await page.screenshot(path=f"screenshots/screenshot_{hashlib.sha256(hash_key.encode()).hexdigest()}_1.png")
             await page.wait_for_selector("//h1[@class='EventDetailsTitle__Title-sc-8ebcf47a-0 iLdkPz']", timeout=5000)
             await page.wait_for_selector("//div[contains(@class, 'EventDetailsTitle__Date-sc-8ebcf47a-2')]", timeout=5000)
+            await page.screenshot(path=f"screenshots/screenshot_{hashlib.sha256(hash_key.encode()).hexdigest()}_2.png")
         except Exception as e:
             print(f"{bcolors.WARNING}Some items are not found for {url}: {e}{bcolors.ESCAPE}")
+            await page.screenshot(path=f"screenshots/screenshot_{hashlib.sha256(hash_key.encode()).hexdigest()}_3.png")
+
 
         hash_key = sheet_name + url
         item = {}
