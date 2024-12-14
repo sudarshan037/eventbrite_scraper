@@ -42,7 +42,8 @@ async def process_page(container, url, sheet_name):
         async def block_unwanted(route):
             await route.abort()
 
-        await page.route("**/*.{png,jpg,jpeg,webp,gif,svg}", block_unwanted)  # Block images
+        await page.route("**/*.{png,jpeg,webp,gif,svg}", block_unwanted)  # Block images
+        await page.route("**/*.jpg?*", block_unwanted)  # Block images
         await page.route("**/*.css", block_unwanted)  # Block CSS files
         await page.route("**/*.{woff,woff2,ttf,otf}", block_unwanted)  # Block fonts
 
@@ -56,13 +57,16 @@ async def process_page(container, url, sheet_name):
             except Exception as e:
                 if attempt == 2:  # Final attempt
                     print(f"Error navigating to {url}: {e}")
-                    await container.upsert_item({
+                    await container.replace_item(
+                        item=hashlib.sha256((sheet_name + url).encode()).hexdigest(),
+                        body={
                         "id": hashlib.sha256((sheet_name + url).encode()).hexdigest(),
                         "url": url,
                         "sheet_name": sheet_name,
                         "processed": True,
-                        "error": f"Navigation error: {e}"
-                    })
+                        "error": f"Navigation error: {e}",
+                        }
+                    )
                     return
                 
         hash_key = sheet_name + url
@@ -73,7 +77,6 @@ async def process_page(container, url, sheet_name):
         # except Exception as e:
         #     print(f"{bcolors.WARNING}Some items are not found for {url}: {e}{bcolors.ESCAPE}")
         #     await page.screenshot(path=f"screenshots/screenshot_{hashlib.sha256(hash_key.encode()).hexdigest()}_3.png")
-
 
         hash_key = sheet_name + url
         item = {}
@@ -99,7 +102,7 @@ async def process_page(container, url, sheet_name):
                 item["organiser_name"] = await get_text("//div[contains(@class, 'EventDetailsBase__Highlight-sc-d40475af-0')]/div/span")
 
             print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
-            await container.upsert_item(item)
+            await container.replace_item(item=item["id"], body=item)
         except Exception as e:
             print(f"Error processing {url}: {e}")
         finally:
@@ -147,18 +150,13 @@ async def fetch_urls_for_vm(container, vm_offset=0, batch_size=100, vm_name="loc
     async def upsert_with_semaphore(item):
         async with semaphore:
             item['processing'] = vm_name
-            await container.upsert_item(item)
+            await container.replace_item(item=item["id"], body=item)
     
     # Lock items for processing concurrently with semaphore
     tasks = [upsert_with_semaphore(item) for item in items]
 
     # Run all tasks concurrently
     await asyncio.gather(*tasks)
-    
-    # # Lock items for processing
-    # for item in items:
-    #     item['processing'] = vm_name
-    #     await container.upsert_item(item)
     
     return [{"url": item["url"], "sheet_name": item["sheet_name"]} for item in items]
 
