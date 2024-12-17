@@ -23,6 +23,7 @@ async def get_container():
     return client, container
 
 async def process_page(container, url, sheet_name):
+    t1_request = time.perf_counter()
     print(f"{bcolors.OKGREEN}URL: {url}{bcolors.ESCAPE}")
     async with async_playwright() as p:
         browser = await p.chromium.launch(
@@ -102,11 +103,18 @@ async def process_page(container, url, sheet_name):
                 item["organiser_name"] = await get_text("//div[contains(@class, 'EventDetailsBase__Highlight-sc-d40475af-0')]/div/span")
 
             print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
+
+            t1 = time.perf_counter()
             await container.replace_item(item=item["id"], body=item)
+            t2 = time.perf_counter()
+            print(f"{bcolors.HEADER}Cosmos Upload: {round(t2-t1, 2)} sec.{bcolors.ESCAPE}")
+        
         except Exception as e:
             print(f"Error processing {url}: {e}")
         finally:
             await browser.close()
+    t2_request = time.perf_counter()
+    print(f"{bcolors.HEADER}Total Request Duration: {round(t2_request-t1_request, 2)} sec.{bcolors.ESCAPE}")
 
 async def process_urls_concurrently(vm_offset, batch_size=100, max_workers=1, vm_name="local"):
     print(f"max_workers: {max_workers}")
