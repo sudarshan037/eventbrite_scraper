@@ -185,7 +185,7 @@ if __name__ == "__main__":
     print(f"Detected {num_cpus} CPUs on {args.vm_name}\nVM_OFFSET: {args.vm_offset}\nBATCH_SIZE: {args.batch_size}.")
 
     try:
-        asyncio.run(process_urls_concurrently(vm_offset=args.vm_offset, batch_size=args.batch_size, max_workers=num_cpus*1.5, vm_name=args.vm_name))
+        asyncio.run(process_urls_concurrently(vm_offset=args.vm_offset, batch_size=args.batch_size, max_workers=num_cpus+1, vm_name=args.vm_name))
     except Exception as e:
         import traceback
         print(f"An error occurred: {traceback.format_exc()}")
