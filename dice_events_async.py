@@ -55,6 +55,7 @@ async def process_page(container, url, sheet_name):
                 await page.goto(url, wait_until="domcontentloaded", timeout=30000)
                 break
             except Exception as e:
+                await asyncio.sleep(random.uniform(2, 5))
                 if attempt == 2:  # Final attempt
                     print(f"Error navigating to {url}: {e}")
                     await container.replace_item(
@@ -101,10 +102,7 @@ async def process_page(container, url, sheet_name):
 
             print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
 
-            t1 = time.perf_counter()
             await container.replace_item(item=item["id"], body=item)
-            t2 = time.perf_counter()
-            print(f"{bcolors.HEADER}Cosmos Upload: {round(t2-t1, 2)} sec.{bcolors.ESCAPE}")
         
         except Exception as e:
             print(f"Error processing {url}: {e}")
