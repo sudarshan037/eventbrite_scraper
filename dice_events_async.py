@@ -23,7 +23,6 @@ async def get_container():
     return client, container
 
 async def process_page(container, url, sheet_name):
-    t1_request = time.perf_counter()
     print(f"{bcolors.OKGREEN}URL: {url}{bcolors.ESCAPE}")
     async with async_playwright() as p:
         browser = await p.chromium.launch(
@@ -53,7 +52,7 @@ async def process_page(container, url, sheet_name):
 
         for attempt in range(3):
             try:
-                await page.goto(url, wait_until="domcontentloaded")
+                await page.goto(url, wait_until="domcontentloaded", timeout=30000)
                 break
             except Exception as e:
                 if attempt == 2:  # Final attempt
@@ -70,8 +69,6 @@ async def process_page(container, url, sheet_name):
                     )
                     return
                 
-        hash_key = sheet_name + url
-
         # try:
         #     await page.wait_for_selector("//h1[@class='EventDetailsTitle__Title-sc-8ebcf47a-0 iLdkPz']", timeout=5000)
         #     await page.wait_for_selector("//div[contains(@class, 'EventDetailsTitle__Date-sc-8ebcf47a-2')]", timeout=5000)
@@ -112,9 +109,8 @@ async def process_page(container, url, sheet_name):
         except Exception as e:
             print(f"Error processing {url}: {e}")
         finally:
+            await context.close()
             await browser.close()
-    t2_request = time.perf_counter()
-    print(f"{bcolors.HEADER}Total Request Duration: {round(t2_request-t1_request, 2)} sec.{bcolors.ESCAPE}")
 
 async def process_urls_concurrently(vm_offset, batch_size=100, max_workers=1, vm_name="local"):
     print(f"max_workers: {max_workers}")
@@ -191,7 +187,7 @@ if __name__ == "__main__":
     print(f"Detected {num_cpus} CPUs on {args.vm_name}\nVM_OFFSET: {args.vm_offset}\nBATCH_SIZE: {args.batch_size}.")
 
     try:
-        asyncio.run(process_urls_concurrently(vm_offset=args.vm_offset, batch_size=args.batch_size, max_workers=num_cpus*2, vm_name=args.vm_name))
+        asyncio.run(process_urls_concurrently(vm_offset=args.vm_offset, batch_size=args.batch_size, max_workers=num_cpus*1.5, vm_name=args.vm_name))
     except Exception as e:
         import traceback
         print(f"An error occurred: {traceback.format_exc()}")
