@@ -1,6 +1,6 @@
-import utils
+from src import utils
 from src.database.azure_cosmos import AzureCosmos
-from src import scrapers
+from src.scrapers import eventbrite_events, dice_events
 
 import argparse
 import asyncio
@@ -20,20 +20,23 @@ if __name__ == "__main__":
     print(f"Detected {num_cpus} CPUs on {args.vm_name}\nVM_OFFSET: {args.vm_offset}\nBATCH_SIZE: {args.batch_size}.")
 
     DATABASE, CONTAINER = "Scraper", args.scraper_name
-    # TODO: make sure async is working here
-    azure_cosmos = AzureCosmos(DATABASE, CONTAINER)
 
-    try:
-        asyncio.run(
-            utils.process_urls_concurrently(
-                azure_cosmos=azure_cosmos,
-                scraper_name=args.scraper_name,
-                vm_offset=args.vm_offset,
-                batch_size=args.batch_size,
-                max_workers=num_cpus + 1,
-                vm_name=args.vm_name,
-            )
+    async def run():
+        azure_cosmos = AzureCosmos()
+        await azure_cosmos.initialize_cosmosdb("Scraper", CONTAINER)
+        await utils.process_urls_concurrently(
+            azure_cosmos=azure_cosmos,
+            scraper_name=args.scraper_name,
+            vm_offset=args.vm_offset,
+            batch_size=args.batch_size,
+            max_workers=num_cpus,
+            vm_name=args.vm_name,
         )
+        await azure_cosmos.client.close()
+
+    
+    try:
+        asyncio.run(run())
     except Exception as e:
         import traceback
         print(f"An error occurred: {traceback.format_exc()}")

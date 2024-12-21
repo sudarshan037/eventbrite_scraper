@@ -2,7 +2,7 @@ import time
 import asyncio
 import hashlib
 import random
-from src import scrapers
+from src.scrapers import eventbrite_events, dice_events
 from playwright.async_api import async_playwright
 from playwright_stealth import stealth_async
 
@@ -46,7 +46,6 @@ async def process_page(container, scraper_name, record):
 
         await page.route("**/*.{png,jpeg,webp,gif,svg}", block_unwanted)  # Block images
         await page.route("**/*.jpg?*", block_unwanted)  # Block images
-        await page.route("**/*.css", block_unwanted)  # Block CSS files
         await page.route("**/*.{woff,woff2,ttf,otf}", block_unwanted)  # Block fonts
 
         # Apply stealth mode
@@ -67,12 +66,21 @@ async def process_page(container, scraper_name, record):
                         body=record
                     )
                     return
+        await page.screenshot(path=f"screenshots/screenshot_3.png")
                 
         record["processed"] = True
         record["processing"] = False
 
-        # TODO: add switch case here for scraper_name
-        record = await scrapers.dice_events.process(record, page)
+        record = {key: value for key, value in record.items() if not key.startswith('_')}
+
+
+        match scraper_name:
+            case "dice_events":
+                record = await dice_events.process(record, page)
+            case "eventbrite_events":
+                record = await eventbrite_events.process(record, page)
+            case _:
+                pass
 
         print(f"{bcolors.OKBLUE}OUTPUT: {record}{bcolors.ESCAPE}")
         await container.replace_item(item=record["id"], body=record)
@@ -106,7 +114,7 @@ async def fetch_urls_for_vm(container_client, vm_offset=0, batch_size=100, vm_na
     # Run all tasks concurrently
     await asyncio.gather(*tasks)
     
-    return [{"url": item["url"], "sheet_name": item["sheet_name"]} for item in items]
+    return [item for item in items]
 
 async def process_urls_concurrently(azure_cosmos, scraper_name, vm_offset, batch_size=100, max_workers=1, vm_name="local"):
     print(f"max_workers: {max_workers}")
