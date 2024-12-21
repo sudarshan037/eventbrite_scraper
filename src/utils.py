@@ -66,7 +66,7 @@ async def process_page(container, scraper_name, record):
                         body=record
                     )
                     return
-        await page.screenshot(path=f"screenshots/screenshot_3.png")
+        # await page.screenshot(path=f"screenshots/screenshot_3.png")
                 
         record["processed"] = True
         record["processing"] = False
