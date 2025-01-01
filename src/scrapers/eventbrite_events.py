@@ -13,5 +13,5 @@ async def process(record, page):
         record['organiser_name'] = await utils.get_text(page, "//strong[contains(@class, 'organizer-listing-info-variant-b__name-link')]")
         record['followers'] = await utils.get_text(page, "//span[contains(@class, 'organizer-stats__highlight')]//strong")
     except Exception as e:
-        print("Error Fetching details for url -> {url}: {e}")
+        print(f"Error Fetching details for url -> {record['url']}: {e}")
     return record

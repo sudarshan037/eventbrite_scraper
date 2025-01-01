@@ -13,5 +13,5 @@ async def process(record, page):
         if not record["organiser_name"]:
             record["organiser_name"] = await utils.get_text(page, "//div[contains(@class, 'EventDetailsBase__Highlight-sc-d40475af-0')]/div/span")
     except Exception as e:
-        print("Error Fetching details for url -> {url}: {e}")
+        print(f"Error Fetching details for url -> {record['url']}: {e}")
     return record

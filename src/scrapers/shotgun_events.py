@@ -8,5 +8,5 @@ async def process(record, page):
     try:
         pass
     except Exception as e:
-        print("Error Fetching details for url -> {url}: {e}")
+        print(f"Error Fetching details for url -> {record['url']}: {e}")
     return record
