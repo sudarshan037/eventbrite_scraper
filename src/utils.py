@@ -74,13 +74,19 @@ async def process_page(container, scraper_name, record):
         record = {key: value for key, value in record.items() if not key.startswith('_')}
 
 
-        match scraper_name:
-            case "dice_events":
-                record = await dice_events.process(record, page)
-            case "eventbrite_events":
-                record = await eventbrite_events.process(record, page)
-            case _:
-                pass
+        # match scraper_name:
+        #     case "dice_events":
+        #         record = await dice_events.process(record, page)
+        #     case "eventbrite_events":
+        #         record = await eventbrite_events.process(record, page)
+        #     case _:
+        #         pass
+        if scraper_name=="dice_events":
+            record = await dice_events.process(record, page)
+        elif scraper_name=="eventbrite_events":
+            record = await eventbrite_events.process(record, page)
+        else:
+            pass
 
         print(f"{bcolors.OKBLUE}OUTPUT: {record}{bcolors.ESCAPE}")
         await container.replace_item(item=record["id"], body=record)
