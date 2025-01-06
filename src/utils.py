@@ -2,7 +2,7 @@ import time
 import asyncio
 import hashlib
 import random
-from src.scrapers import eventbrite_events, dice_events
+from src.scrapers import eventbrite_events, dice_events, shotgun_events
 from playwright.async_api import async_playwright
 from playwright_stealth import stealth_async
 
@@ -46,7 +46,7 @@ async def process_page(container, scraper_name, record):
 
         await page.route("**/*.{png,jpeg,webp,gif,svg}", block_unwanted)  # Block images
         await page.route("**/*.jpg?*", block_unwanted)  # Block images
-        await page.route("**/*.{woff,woff2,ttf,otf}", block_unwanted)  # Block fonts
+        # await page.route("**/*.{woff,woff2,ttf,otf}", block_unwanted)  # Block fonts
 
         # Apply stealth mode
         await stealth_async(page)
@@ -66,7 +66,7 @@ async def process_page(container, scraper_name, record):
                         body=record
                     )
                     return
-        # await page.screenshot(path=f"screenshots/screenshot_3.png")
+        # await page.screenshot(path=f"screenshots/screenshot_{record['id']}.png")
                 
         record["processed"] = True
         record["processing"] = False
@@ -85,11 +85,13 @@ async def process_page(container, scraper_name, record):
             record = await dice_events.process(record, page)
         elif scraper_name=="eventbrite_events":
             record = await eventbrite_events.process(record, page)
+        elif scraper_name=="shotgun_events":
+            record = await shotgun_events.process(record, page)
         else:
             pass
 
         print(f"{bcolors.OKBLUE}OUTPUT: {record}{bcolors.ESCAPE}")
-        await container.replace_item(item=record["id"], body=record)
+        # await container.replace_item(item=record["id"], body=record)
         await context.close()
         await browser.close()
 
@@ -147,4 +149,5 @@ async def process_urls_concurrently(azure_cosmos, scraper_name, vm_offset, batch
 
         t3_batch = time.perf_counter()
         print(f"{bcolors.FAIL}Records Fetch: {round(t2_batch-t1_batch, 2)} sec.\nBatch Scrapping: {round(t3_batch-t2_batch, 2)} sec.\nBatch Total: {round(t3_batch-t1_batch, 2)} sec.{bcolors.ESCAPE}")
+        break
     await azure_cosmos.client.close()
