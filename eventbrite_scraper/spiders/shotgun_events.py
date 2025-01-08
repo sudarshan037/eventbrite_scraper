@@ -158,7 +158,7 @@ class CosmosDBSpiderMixin(object):
     def parse(self, response):
         print(f"{bcolors.OKGREEN}URL: {response.meta.get('url')}{bcolors.ESCAPE}")
         if response.meta.get('url') != response.url:
-            print(f"{bcolors.FAIL}REDIRECTION: [{response.meta.get('url')}] -> [{response.url}]")
+            print(f"{bcolors.FAIL}REDIRECTION: [{response.meta.get('url')}] -> [{response.url}]{bcolors.ESCAPE}")
 
         if response.status in [400, 403, 404]:
             print(f"{bcolors.FAIL}{response.status} Error: {response.url}{bcolors.ESCAPE}")
@@ -193,6 +193,7 @@ class CosmosDBSpiderMixin(object):
         item = ShotgunEvents()
 
         self.driver.get(response.url)
+        # self.driver.save_screenshot(f"screenshots/screenshot.png")
         
         wait = WebDriverWait(self.driver, 10)
 
@@ -205,35 +206,15 @@ class CosmosDBSpiderMixin(object):
         item["processed"] = True
         item["sheet_name"] = response.meta.get('sheet_name')
 
-        item['event_name'] = selector_response.xpath("//h1[contains(@class, 'css-4rbku5') and contains(@class, 'css-901oao')]/text()").get()
-        item['date'] = selector_response.xpath("//div[contains(@class, 'css-901oao') and contains(@class, 'r-1rmgsgu')]/span[contains(@class, 'css-16my406')]/text()").get()
-        
-        item['location'] = []
-        location_items = selector_response.xpath("//div[contains(@class, 'css-1dbjc4n r-1awozwy r-18u37iz r-p1pxzi')]//span/text()").getall()
-        [item['location'].append(location_item) for location_item in location_items if location_item not in item['location']]
-        item['location'] = " ".join(item['location'])
+        item['event_name'] = selector_response.xpath("//h1[contains(@class, 'font-title')]/text()").get()
 
-        organizers = []
-        for organizer_div in selector_response.xpath("//div[contains(@class, 'css-1dbjc4n r-1awozwy r-18u37iz r-1wtj0ep r-1peese0 r-bxaokz')]"):
-            organizers.append({
-                'name': organizer_div.xpath(".//div[@dir='auto'][1]/text()").get(default='').strip(),
-                'followers': organizer_div.xpath(".//div[@dir='auto'][2]/text()").get(default='').strip(),
-            })
-        
-        try:
-            item['organiser_name_1'] = organizers[0]["name"]
-            item['followers_1'] = organizers[0]["followers"]
-        except:
-            item['organiser_name_1'] = ""
-            item['followers_1'] = ""
-        
-        try:
-            item['organiser_name_2'] = organizers[1]["name"]
-            item['followers_2'] = organizers[1]["followers"]
-        except:
-            item['organiser_name_2'] = ""
-            item['followers_2'] = ""
-        
+        for div in response.css('div.text-muted-foreground.mt-2.max-w-96'):
+            item["date"] = div.css('a span.text-accent-foreground::text').get()
+            item["location"] = div.css('a::text').getall()[-1]
+
+        item['organiser_name'] = selector_response.xpath('//div[contains(@class, "text-muted-foreground mt-1")]//a/text()').get()
+        item["organiser_link"] = f"https://shotgun.live/{response.css('a.flex.flex-1.items-center.gap-4::attr(href)').get()}"
+        item["followers"] = response.css('div.text-muted-foreground.text-sm::text').get()
         print(f"{bcolors.OKBLUE}OUTPUT: {item}{bcolors.ESCAPE}")
         self.container.upsert_item(item)
         return item

@@ -51,6 +51,21 @@ class ShotgunLink(scrapy.Item):
     processed = scrapy.Field()
     sheet_name = scrapy.Field()
 
+# class ShotgunEvents(scrapy.Item):
+#     id = scrapy.Field()
+#     url = scrapy.Field()
+#     processed = scrapy.Field()
+#     source_url = scrapy.Field()
+#     sheet_name = scrapy.Field()
+
+#     event_name = scrapy.Field()
+#     date = scrapy.Field()
+#     location = scrapy.Field()
+#     followers_1 = scrapy.Field()
+#     followers_2 = scrapy.Field()
+#     organiser_name_1 = scrapy.Field()
+#     organiser_name_2 = scrapy.Field()
+
 class ShotgunEvents(scrapy.Item):
     id = scrapy.Field()
     url = scrapy.Field()
@@ -61,7 +76,6 @@ class ShotgunEvents(scrapy.Item):
     event_name = scrapy.Field()
     date = scrapy.Field()
     location = scrapy.Field()
-    followers_1 = scrapy.Field()
-    followers_2 = scrapy.Field()
-    organiser_name_1 = scrapy.Field()
-    organiser_name_2 = scrapy.Field()
+    followers = scrapy.Field()
+    organiser_name = scrapy.Field()
+    organiser_link = scrapy.Field()
