@@ -29,7 +29,7 @@ logging.getLogger('azure').setLevel(logging.CRITICAL)
 class CosmosDBSpiderMixin(object):
     def __init__(self):
         self.offset_flag = True
-        self.max_offset = 32
+        self.max_offset = 512
         print(f"max_offset = {self.max_offset}")
 
         self.USER_AGENTS = [
