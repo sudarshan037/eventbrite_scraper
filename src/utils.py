@@ -2,7 +2,7 @@ import time
 import asyncio
 import hashlib
 import random
-from src.scrapers import eventbrite_events, dice_events, shotgun_events
+from src.scrapers import eventbrite_events, dice_events, shotgun_events, letsdo_links, letsdo_events, ra_events
 from playwright.async_api import async_playwright
 from playwright_stealth import stealth_async
 
@@ -87,6 +87,12 @@ async def process_page(container, scraper_name, record):
             record = await eventbrite_events.process(record, page)
         elif scraper_name=="shotgun_events":
             record = await shotgun_events.process(record, page)
+        elif scraper_name=="letsdo_links":
+            record = await letsdo_links.process(record, page)
+        elif scraper_name=="letsdo_events":
+            record = await letsdo_events.process(record, page)
+        elif scraper_name=="ra_events":
+            record = await ra_events.process(record, page)
         else:
             pass
         
@@ -131,11 +137,14 @@ async def process_urls_concurrently(azure_cosmos, scraper_name, vm_offset, batch
     while True:
         t1_batch = time.perf_counter()
         # Fetch a batch of URLs for this VM
-        records = await fetch_urls_for_vm(azure_cosmos.container, vm_offset=vm_offset, batch_size=batch_size, vm_name=vm_name, max_workers=max_workers)
+        # records = await fetch_urls_for_vm(azure_cosmos.container, vm_offset=vm_offset, batch_size=batch_size, vm_name=vm_name, max_workers=max_workers)
         records = [
-            {"url": "https://ra.co/events/1925149", "id": "123"},
+            # {"url": "https://www.letsdothis.com/us/e/2024-jingle-bell-run-metro-dc-235068", "id": "123"},
             # {"url": "https://www.letsdothis.com/us/e/jeepers-creepers-run-118435", "id": "456"},
-            {"url": "https://ra.co/promoters/64251", "id": "789"}
+            # {"url": "https://www.letsdothis.com/us/e/run-in-the-new-year-5k-10k-half-marathon-78899", "id": "789"},
+            {"url": "https://ra.co/events/2008549", "id": "123"},
+            {"url": "https://ra.co/events/2055476", "id": "456"},
+            # {"url": "https://www.letsdothis.com/us/e/run-in-the-new-year-5k-10k-half-marathon-78899", "id": "789"}
                    ]
         if not records:
             print("No unprocessed URLs found. Exiting.")
