@@ -7,7 +7,7 @@ __pycache__/
 *.so
 
 # folders
-data/
+data/*
 *.log
 
 # Distribution / packaging
