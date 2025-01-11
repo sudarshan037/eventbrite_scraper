@@ -66,7 +66,7 @@ async def process_page(container, scraper_name, record):
                         body=record
                     )
                     return
-        await page.screenshot(path=f"screenshots/screenshot_{record['id']}.png", full_page=True)
+        # await page.screenshot(path=f"screenshots/screenshot_{record['id']}.png", full_page=True)
                 
         record["processed"] = True
         record["processing"] = False
@@ -96,9 +96,9 @@ async def process_page(container, scraper_name, record):
         else:
             pass
         
-        await asyncio.sleep(30)
+        # await asyncio.sleep(30)
         print(f"{bcolors.OKBLUE}OUTPUT: {record}{bcolors.ESCAPE}")
-        # await container.replace_item(item=record["id"], body=record)
+        await container.replace_item(item=record["id"], body=record)
         await context.close()
         await browser.close()
 
@@ -137,15 +137,7 @@ async def process_urls_concurrently(azure_cosmos, scraper_name, vm_offset, batch
     while True:
         t1_batch = time.perf_counter()
         # Fetch a batch of URLs for this VM
-        # records = await fetch_urls_for_vm(azure_cosmos.container, vm_offset=vm_offset, batch_size=batch_size, vm_name=vm_name, max_workers=max_workers)
-        records = [
-            # {"url": "https://www.letsdothis.com/us/e/2024-jingle-bell-run-metro-dc-235068", "id": "123"},
-            # {"url": "https://www.letsdothis.com/us/e/jeepers-creepers-run-118435", "id": "456"},
-            # {"url": "https://www.letsdothis.com/us/e/run-in-the-new-year-5k-10k-half-marathon-78899", "id": "789"},
-            {"url": "https://ra.co/events/2008549", "id": "123"},
-            {"url": "https://ra.co/events/2055476", "id": "456"},
-            # {"url": "https://www.letsdothis.com/us/e/run-in-the-new-year-5k-10k-half-marathon-78899", "id": "789"}
-                   ]
+        records = await fetch_urls_for_vm(azure_cosmos.container, vm_offset=vm_offset, batch_size=batch_size, vm_name=vm_name, max_workers=max_workers)
         if not records:
             print("No unprocessed URLs found. Exiting.")
             break
@@ -164,5 +156,4 @@ async def process_urls_concurrently(azure_cosmos, scraper_name, vm_offset, batch
 
         t3_batch = time.perf_counter()
         print(f"{bcolors.FAIL}Records Fetch: {round(t2_batch-t1_batch, 2)} sec.\nBatch Scrapping: {round(t3_batch-t2_batch, 2)} sec.\nBatch Total: {round(t3_batch-t1_batch, 2)} sec.{bcolors.ESCAPE}")
-        break
     await azure_cosmos.client.close()
