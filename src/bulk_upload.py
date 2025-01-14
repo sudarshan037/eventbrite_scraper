@@ -87,4 +87,5 @@ async def run():
 
     await azure_cosmos.client.close()
 
-asyncio.run(run())
+if __name__ == "__main__":
+    asyncio.run(run())

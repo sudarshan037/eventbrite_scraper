@@ -49,11 +49,15 @@ async def process_page(container, scraper_name, record):
         # await page.route("**/*.{woff,woff2,ttf,otf}", block_unwanted)  # Block fonts
 
         # Apply stealth mode
-        await stealth_async(page)
+        if scraper_name not in ["letsdo_links"]:
+            wait_until="domcontentloaded"
+            await stealth_async(page)
+        else:
+            wait_until="networkidle"
 
         for attempt in range(3):
             try:
-                await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                await page.goto(url, wait_until=wait_until, timeout=30000)
                 break
             except Exception as e:
                 await asyncio.sleep(random.uniform(2, 5))

@@ -1,12 +1,26 @@
 from src import utils
+from src import bulk_upload
+
+
+async def run(record, urls):
+    print(urls, record)
+    await bulk_upload.azure_cosmos.initialize_cosmosdb("Scraper", "letsdo_events")
+    await bulk_upload.upload_urls(urls, record.get("sheet_name", ""), "letsdo_events")
+    await bulk_upload.azure_cosmos.client.close()
 
 async def process(record, page):
     """
     record: whatever is present in cosmos db for that record [mandatory "url"]
     page: playwright page object used for data extraction
     """
+    urls = []
     try:
-        record['event_name'] = await utils.get_text(page,"/html/body/div[2]/div[1]/div[2]/main/div/div[2]/div[1]/div[1]/h1",is_xpath=True)
+        links = await page.query_selector_all("main a[href]")
+        for link in links:
+            href = await link.get_attribute("href")
+            urls.append(href)
     except Exception as e:
         print(f"Error Fetching details for url -> {record['url']}: {e}")
+    if urls:
+        await run(record, urls)
     return record
