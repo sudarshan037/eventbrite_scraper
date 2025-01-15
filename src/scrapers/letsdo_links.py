@@ -19,9 +19,9 @@ async def process(record, page):
         for link in links:
             href = await link.get_attribute("href")
             urls.append(href)
+        if urls:
+            await run(record, urls)
     except Exception as e:
         print(f"Error Fetching details for url -> {record['url']}: {e}")
-    if urls:
-        await run(record, urls)
-        record["urls_count"] = len(urls)
+    record["urls_count"] = len(urls)
     return record
