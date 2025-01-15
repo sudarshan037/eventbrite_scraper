@@ -23,4 +23,5 @@ async def process(record, page):
         print(f"Error Fetching details for url -> {record['url']}: {e}")
     if urls:
         await run(record, urls)
+        record["urls_count"] = len(urls)
     return record
