@@ -5,6 +5,8 @@ import random
 from src.scrapers import eventbrite_events, dice_events, shotgun_events, letsdo_links, letsdo_events, ra_events
 from playwright.async_api import async_playwright
 from playwright_stealth import stealth_async
+import os
+import sqlite3
 
 class bcolors:
     HEADER = '\033[95m'
@@ -161,5 +163,62 @@ async def process_urls_concurrently(azure_cosmos, scraper_name, vm_offset, batch
 
         t3_batch = time.perf_counter()
         print(f"{bcolors.FAIL}Records Fetch: {round(t2_batch-t1_batch, 2)} sec.\nBatch Scrapping: {round(t3_batch-t2_batch, 2)} sec.\nBatch Total: {round(t3_batch-t1_batch, 2)} sec.{bcolors.ESCAPE}")
+        if scraper_name == "letsdo_links":
+            await migrate_data_to_cosmos_and_cleanup(azure_cosmos, "Scraper.db", "letsdo_events")
         break
+
     await azure_cosmos.client.close()
+
+async def migrate_data_to_cosmos_and_cleanup(azure_cosmos, sqlite_db_path, cosmos_container_name, batch_size=100):
+    """
+    Move data from the SQLite 'events' table to the specified Cosmos container
+    using bulk upload and delete the SQLite database afterward.
+    """
+    try:
+        # Connect to SQLite database and fetch data
+        conn = sqlite3.connect(sqlite_db_path)
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT source_url, url, sheet_name FROM letsdo_events")
+        rows = cursor.fetchall()
+        print(rows)
+        # Divide rows into batches
+        total_rows = len(rows)
+        print(f"Total records fetched from SQLite: {total_rows}")
+
+        for i in range(0, total_rows, batch_size):
+            batch = rows[i:i + batch_size]
+            print(f"Processing batch {i // batch_size + 1} with {len(batch)} records.")
+
+            # Prepare items for bulk upload
+            valid_items = []
+            for source_url, url, sheet_name in batch:
+                if source_url and url:  # Validate critical fields
+                    item = {
+                        "id": f"{source_url}-{url}",
+                        "source_url": source_url,
+                        "url": url,
+                        "sheet_name": sheet_name or "",  # Default empty string if None
+                    }
+                    valid_items.append(item)
+                else:
+                    print(f"Skipping invalid record: source_url={source_url}, url={url}")
+
+            # Perform bulk upload
+            for item in valid_items:
+                try:
+                    await azure_cosmos.container.upsert_item(item)
+                except Exception as e:
+                    print(f"Error inserting item {item.get('id', '<missing id>')}: {e}")
+
+        # Close SQLite connection
+        conn.close()
+
+        # Delete SQLite database
+        os.remove(sqlite_db_path)
+        print(f"SQLite database {sqlite_db_path} deleted successfully.")
+
+    except Exception as e:
+        print(f"Error during migration or cleanup: {e}")
+
+

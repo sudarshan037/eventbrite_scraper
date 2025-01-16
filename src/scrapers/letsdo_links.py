@@ -9,7 +9,7 @@ async def run(record, urls):
     """
     conn = await sqlite_handler.initialize_sqlite()
     try:
-        await sqlite_handler.insert_into_sqlite(conn, record["url"], urls, record.get("sheet_name", ""))
+        await sqlite_handler.insert_into_sqlite(conn, record["url"], urls, record.get("sheet_name", "abc"))
     except Exception as e:
         print(f"Error inserting into SQLite: {e}")
     finally:
@@ -22,22 +22,34 @@ async def run(record, urls):
 #     print(urls, record)
 #     await bulk_upload.azure_cosmos.initialize_cosmosdb("Scraper", "letsdo_events")
 #     await bulk_upload.upload_urls(urls, record.get("sheet_name", ""), "letsdo_events")
-#     await bulk_upload.azure_cosmos.client.close()
+#     await bulk_upload.azure_cosmos.client.close()  
 
 async def process(record, page):
     """
     record: whatever is present in cosmos db for that record [mandatory "url"]
     page: playwright page object used for data extraction
     """
-    urls = []
+    url = None
     try:
+        # Get all the anchor elements with href in the main tag
         links = await page.query_selector_all("main a[href]")
-        for link in links:
-            href = await link.get_attribute("href")
-            urls.append(href)
-        if urls:
-            await run(record, urls)
+        
+        if links:  # Ensure there are links available
+            # Try to get the second link, fallback to the first if only one exists
+            target_link = links[1] if len(links) > 1 else links[0]
+            href = await target_link.get_attribute("href")  # Extract href
+            
+            if href:  # Ensure href exists
+                url = f"https://www.letsdothis.com{href}"  # Prepend the prefix
+        
+        # Run with the single URL if extracted
+        if url:
+            await run(record, [url])
     except Exception as e:
         print(f"Error Fetching details for url -> {record['url']}: {e}")
-    record["urls_count"] = len(urls)
+    
+    # Add the single URL and its presence as a count to the record
+    record["url"] = url
+    record["urls_count"] = 1 if url else 0
     return record
+
