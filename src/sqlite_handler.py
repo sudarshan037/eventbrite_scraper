@@ -20,7 +20,8 @@ async def initialize_sqlite():
 async def insert_into_sqlite(conn, source_url, urls, sheet_name):
     """Insert records into the SQLite database."""
     data = [(source_url, url, sheet_name) for url in urls]
-    await conn.executemany("""
-    INSERT INTO letsdo_events (source_url, url, sheet_name) VALUES (?, ?, ?)
-    """, data)
+    await conn.executemany(
+        """INSERT INTO letsdo_events (source_url, url, sheet_name) VALUES (?, ?, ?)""",
+        data
+    )
     await conn.commit()

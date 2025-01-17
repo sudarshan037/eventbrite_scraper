@@ -79,14 +79,6 @@ async def process_page(container, scraper_name, record):
 
         record = {key: value for key, value in record.items() if not key.startswith('_')}
 
-
-        # match scraper_name:
-        #     case "dice_events":
-        #         record = await dice_events.process(record, page)
-        #     case "eventbrite_events":
-        #         record = await eventbrite_events.process(record, page)
-        #     case _:
-        #         pass
         if scraper_name=="dice_events":
             record = await dice_events.process(record, page)
         elif scraper_name=="eventbrite_events":
@@ -104,7 +96,7 @@ async def process_page(container, scraper_name, record):
         
         # await asyncio.sleep(30)
         print(f"{bcolors.OKBLUE}OUTPUT: {record}{bcolors.ESCAPE}")
-        # await container.replace_item(item=record["id"], body=record)
+        await container.replace_item(item=record["id"], body=record)
         await context.close()
         await browser.close()
 
@@ -137,38 +129,6 @@ async def fetch_urls_for_vm(container_client, vm_offset=0, batch_size=100, vm_na
     
     return [item for item in items]
 
-async def process_urls_concurrently(azure_cosmos, scraper_name, vm_offset, batch_size=100, max_workers=1, vm_name="local"):
-    print(f"max_workers: {max_workers}")
-    """Process URLs fetched from CosmosDB."""
-    while True:
-        t1_batch = time.perf_counter()
-        # Fetch a batch of URLs for this VM
-        # records = await fetch_urls_for_vm(azure_cosmos.container, vm_offset=vm_offset, batch_size=batch_size, vm_name=vm_name, max_workers=max_workers)
-        records = [{"id": "123", "url": "https://www.letsdothis.com/o/caren-ware-events-96318"}, {"id": "234", "url": "https://www.letsdothis.com/o/arthritis-foundation-154757"}]
-        if not records:
-            print("No unprocessed URLs found. Exiting.")
-            break
-        t2_batch = time.perf_counter()
-        print(f"{bcolors.FAIL}Records Fetch: {round(t2_batch-t1_batch, 2)} sec.{bcolors.ESCAPE}")
-
-        semaphore = asyncio.Semaphore(max_workers)
-
-        async def process_with_semaphore(record):
-            async with semaphore:
-                await process_page(azure_cosmos.container, scraper_name, record)
-
-        # Create tasks with concurrency control
-        tasks = [process_with_semaphore(record) for record in records]
-        await asyncio.gather(*tasks)
-
-        t3_batch = time.perf_counter()
-        print(f"{bcolors.FAIL}Records Fetch: {round(t2_batch-t1_batch, 2)} sec.\nBatch Scrapping: {round(t3_batch-t2_batch, 2)} sec.\nBatch Total: {round(t3_batch-t1_batch, 2)} sec.{bcolors.ESCAPE}")
-        if scraper_name == "letsdo_links":
-            await migrate_data_to_cosmos_and_cleanup(azure_cosmos, "Scraper.db", "letsdo_events")
-        break
-
-    await azure_cosmos.client.close()
-
 async def migrate_data_to_cosmos_and_cleanup(azure_cosmos, sqlite_db_path, cosmos_container_name, batch_size=100):
     """
     Move data from the SQLite 'events' table to the specified Cosmos container
@@ -194,8 +154,9 @@ async def migrate_data_to_cosmos_and_cleanup(azure_cosmos, sqlite_db_path, cosmo
             valid_items = []
             for source_url, url, sheet_name in batch:
                 if source_url and url:  # Validate critical fields
+                    hash_key = sheet_name + url
                     item = {
-                        "id": f"{source_url}-{url}",
+                        "id": hashlib.sha256(hash_key.encode()).hexdigest(),
                         "source_url": source_url,
                         "url": url,
                         "sheet_name": sheet_name or "",  # Default empty string if None
@@ -205,6 +166,7 @@ async def migrate_data_to_cosmos_and_cleanup(azure_cosmos, sqlite_db_path, cosmo
                     print(f"Skipping invalid record: source_url={source_url}, url={url}")
 
             # Perform bulk upload
+            await azure_cosmos.initialize_cosmosdb("Scraper", cosmos_container_name)
             for item in valid_items:
                 try:
                     await azure_cosmos.container.upsert_item(item)
@@ -221,4 +183,32 @@ async def migrate_data_to_cosmos_and_cleanup(azure_cosmos, sqlite_db_path, cosmo
     except Exception as e:
         print(f"Error during migration or cleanup: {e}")
 
+async def process_urls_concurrently(azure_cosmos, scraper_name, vm_offset, batch_size=100, max_workers=1, vm_name="local"):
+    print(f"max_workers: {max_workers}")
+    """Process URLs fetched from CosmosDB."""
+    while True:
+        t1_batch = time.perf_counter()
+        # Fetch a batch of URLs for this VM
+        records = await fetch_urls_for_vm(azure_cosmos.container, vm_offset=vm_offset, batch_size=batch_size, vm_name=vm_name, max_workers=max_workers)
+        if not records:
+            print("No unprocessed URLs found. Exiting.")
+            break
+        t2_batch = time.perf_counter()
+        print(f"{bcolors.FAIL}Records Fetch: {round(t2_batch-t1_batch, 2)} sec.{bcolors.ESCAPE}")
 
+        semaphore = asyncio.Semaphore(max_workers)
+
+        async def process_with_semaphore(record):
+            async with semaphore:
+                await process_page(azure_cosmos.container, scraper_name, record)
+
+        # Create tasks with concurrency control
+        tasks = [process_with_semaphore(record) for record in records]
+        await asyncio.gather(*tasks)
+
+        t3_batch = time.perf_counter()
+        print(f"{bcolors.FAIL}Records Fetch: {round(t2_batch-t1_batch, 2)} sec.\nBatch Scrapping: {round(t3_batch-t2_batch, 2)} sec.\nBatch Total: {round(t3_batch-t1_batch, 2)} sec.{bcolors.ESCAPE}")
+
+        if scraper_name == "letsdo_links":
+            await migrate_data_to_cosmos_and_cleanup(azure_cosmos, "Scraper.db", "letsdo_events")
+    await azure_cosmos.client.close()

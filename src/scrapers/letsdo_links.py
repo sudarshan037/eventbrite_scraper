@@ -1,6 +1,5 @@
 from src import utils
 from src import bulk_upload
-
 from src import sqlite_handler 
 
 async def run(record, urls):
