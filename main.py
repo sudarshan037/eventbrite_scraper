@@ -22,21 +22,22 @@ if __name__ == "__main__":
     DATABASE, CONTAINER = "Scraper", args.scraper_name
 
     async def run():
-        azure_cosmos = AzureCosmos()
-        await azure_cosmos.initialize_cosmosdb("Scraper", CONTAINER)
-        await utils.process_urls_concurrently(
-            azure_cosmos=azure_cosmos,
-            scraper_name=args.scraper_name,
-            vm_offset=args.vm_offset,
-            batch_size=args.batch_size,
-            max_workers=num_cpus,
-            vm_name=args.vm_name,
-        )
-        await azure_cosmos.client.close()
+        try:
+            azure_cosmos = AzureCosmos()
+            await azure_cosmos.initialize_cosmosdb("Scraper", CONTAINER)
+            await utils.process_urls_concurrently(
+                azure_cosmos=azure_cosmos,
+                scraper_name=args.scraper_name,
+                vm_offset=args.vm_offset,
+                batch_size=args.batch_size,
+                max_workers=num_cpus,
+                vm_name=args.vm_name,
+            )
+            await azure_cosmos.client.close()
+        except Exception as e:
+            print(e)
 
-    
     try:
         asyncio.run(run())
-    except Exception as e:
-        import traceback
-        print(f"An error occurred: {traceback.format_exc()}")
+    except KeyboardInterrupt:
+        print("Script interrupted by user.")
