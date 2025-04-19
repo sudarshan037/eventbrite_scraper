@@ -2,7 +2,8 @@ import time
 import asyncio
 import hashlib
 import random
-from src.scrapers import eventbrite_events, dice_events, shotgun_events, letsdo_links, letsdo_events, ra_events
+from src.scrapers import letsdo_links, classpass_links
+from src.scrapers import eventbrite_events, dice_events, shotgun_events, letsdo_events, ra_events
 from playwright.async_api import async_playwright
 from playwright_stealth import stealth_async
 import os
@@ -52,11 +53,11 @@ async def process_page(container, scraper_name, record):
         # await page.route("**/*.{woff,woff2,ttf,otf}", block_unwanted)  # Block fonts
 
         # Apply stealth mode
-        if scraper_name not in ["letsdo_links"]:
+        if scraper_name in ["letsdo_links", "classpass_links"]:
+            wait_until="networkidle"
+        else:
             wait_until="domcontentloaded"
             await stealth_async(page)
-        else:
-            wait_until="networkidle"
 
         for attempt in range(3):
             try:
@@ -79,7 +80,6 @@ async def process_page(container, scraper_name, record):
         record["processing"] = False
 
         record = {key: value for key, value in record.items() if not key.startswith('_')}
-
         if scraper_name=="dice_events":
             record = await dice_events.process(record, page)
         elif scraper_name=="eventbrite_events":
@@ -92,6 +92,8 @@ async def process_page(container, scraper_name, record):
             record = await letsdo_events.process(record, page)
         elif scraper_name=="ra_events":
             record = await ra_events.process(record, page)
+        elif scraper_name=="classpass_links":
+            record = await classpass_links.process(record, page)
         else:
             pass
         
