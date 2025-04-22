@@ -29,7 +29,7 @@ async def process(record, page):
             elif "facebook" in href:
                 record["facebook_link"] = href
                 record["facebook_handle"] = text.strip()
-            elif "twitter" in href:
+            elif "x.com" in href or "twitter.com" in href:
                 record["twitter_link"] = href
                 record["twitter_handle"] = text.strip()
             elif "youtube" in href:
