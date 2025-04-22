@@ -9,6 +9,7 @@ from playwright_stealth import stealth_async
 import os
 import sqlite3
 import signal
+from src import bulk_upload
 
 class bcolors:
     HEADER = '\033[95m'
@@ -99,6 +100,9 @@ async def process_page(container, scraper_name, record):
         
         # await asyncio.sleep(30)
         print(f"{bcolors.OKBLUE}OUTPUT: {record}{bcolors.ESCAPE}")
+        if "_links" in scraper_name:
+            await bulk_upload.intermediate_upload(record["events"], record["url"], record["sheet_name"], scraper_name.replace("links", "events"))
+            record.pop("events", None)
         await container.replace_item(item=record["id"], body=record)
         await context.close()
         await browser.close()

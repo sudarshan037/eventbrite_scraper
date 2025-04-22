@@ -14,7 +14,7 @@ async def initialize_cosmosdb():
     await azure_cosmos.initialize_cosmosdb(DATABASE_ID, "eventbrite_events")
     return DATABASE_ID
 
-async def process_url(url, sheet_name, container_name, semaphore):
+async def process_url(url, source_url, sheet_name, container_name, semaphore):
     async with semaphore:
         secure_url = url.replace("http://", "https://")
         hash_key = sheet_name + secure_url
@@ -22,7 +22,8 @@ async def process_url(url, sheet_name, container_name, semaphore):
             "id": hashlib.sha256(hash_key.encode()).hexdigest(),
             "url": secure_url,
             "processed": False,
-            "sheet_name": sheet_name
+            "sheet_name": sheet_name,
+            "source_url": source_url
         }
 
         retries = 0
@@ -46,16 +47,23 @@ async def process_url(url, sheet_name, container_name, semaphore):
                     return False
         return False
 
-async def upload_urls(urls, sheet_name, container_name, max_concurrent_tasks=10):
+async def upload_urls(urls, source_url, sheet_name, container_name, max_concurrent_tasks=10):
     semaphore = asyncio.Semaphore(max_concurrent_tasks)
     tasks = [
-        process_url(url, sheet_name, container_name, semaphore)
+        process_url(url, source_url, sheet_name, container_name, semaphore)
         for url in urls
     ]
     results = await asyncio.gather(*tasks)
     success_count = sum(results)
     print(f"Out of {len(urls)} URLs, {success_count} were uploaded successfully.")
     return success_count
+
+
+async def intermediate_upload(urls, source_url, SHEET_NAME, SCRAPER_NAME):
+    await azure_cosmos.initialize_cosmosdb("Scraper", SCRAPER_NAME)
+    await upload_urls(urls, source_url, SHEET_NAME, SCRAPER_NAME)
+    print(f"Starting upload of {len(urls)} URLs to container '{SCRAPER_NAME}'...")
+    await azure_cosmos.client.close()
 
 async def run():
     DATABASE_ID = await initialize_cosmosdb()
@@ -73,6 +81,7 @@ async def run():
         return
 
     SHEET_NAME, extension = os.path.splitext(os.path.basename(INPUT_FILE_PATH))
+    source_url = ""
     df = pd.read_csv(INPUT_FILE_PATH)
 
     if "Links" not in df.columns:
@@ -83,7 +92,7 @@ async def run():
     urls = df["Links"].to_list()
 
     print(f"Starting upload of {len(urls)} URLs to container '{SCRAPER_NAME}'...")
-    await upload_urls(urls, SHEET_NAME, SCRAPER_NAME)
+    await upload_urls(urls, source_url, SHEET_NAME, SCRAPER_NAME)
 
     await azure_cosmos.client.close()
 

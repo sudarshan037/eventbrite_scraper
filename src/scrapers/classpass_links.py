@@ -13,29 +13,9 @@ async def process(record, page):
             for item in list_items:
                 try:
                     name_node = await item.query_selector('a[data-qa="VenueItem.name"]')
-                    name = await name_node.inner_text()
                     url = await name_node.get_attribute('href')
-
-                    image_node = await item.query_selector('a[data-qa="VenueItem.image"] img')
-                    image_url = await image_node.get_attribute('src') if image_node else None
-
-                    activity_node = await item.query_selector('div[data-qa="VenueItem.activities"]')
-                    activities = await activity_node.inner_text() if activity_node else None
-
-                    location_node = await item.query_selector('div[data-qa="VenueItem.location"]')
-                    location = await location_node.inner_text() if location_node else None
-
-                    description_node = await item.query_selector('div[data-qa="VenueItem.description"]')
-                    description = await description_node.inner_text() if description_node else None
-
-                    record['events'].append({
-                        "name": name,
-                        "url": f"https://www.classpass.com{url}" if url else None,
-                        "image": image_url,
-                        "activities": activities,
-                        "location": location,
-                        "description": description,
-                    })
+                    if url:
+                        record['events'].append(f"https://www.classpass.com{url}" if url else None,)
                 except Exception as e:
                     print(f"⚠️ Error processing an event: {e}")
 
@@ -60,4 +40,4 @@ async def process(record, page):
             await page.wait_for_timeout(2000)
     except Exception as e:
         print(f"Error Fetching details for url -> {record['url']}: {e}")
-    return {}
+    return record
