@@ -2,7 +2,7 @@ import time
 import asyncio
 import hashlib
 import random
-from src.scrapers import letsdo_links, classpass_links
+from src.scrapers import eventbrite_links, letsdo_links, classpass_links
 from src.scrapers import eventbrite_events, dice_events, shotgun_events, letsdo_events, ra_events, classpass_events
 from playwright.async_api import async_playwright
 from playwright_stealth import stealth_async
@@ -54,7 +54,7 @@ async def process_page(container, scraper_name, record):
         # await page.route("**/*.{woff,woff2,ttf,otf}", block_unwanted)  # Block fonts
 
         # Apply stealth mode
-        if scraper_name in ["letsdo_links", "classpass_links"]:
+        if scraper_name in ["eventbrite_links", "letsdo_links", "classpass_links"]:
             wait_until="networkidle"
         else:
             wait_until="domcontentloaded"
@@ -83,6 +83,8 @@ async def process_page(container, scraper_name, record):
         record = {key: value for key, value in record.items() if not key.startswith('_')}
         if scraper_name=="dice_events":
             record = await dice_events.process(record, page)
+        elif scraper_name=="eventbrite_links":
+            record = await eventbrite_links.process(record, page)
         elif scraper_name=="eventbrite_events":
             record = await eventbrite_events.process(record, page)
         elif scraper_name=="shotgun_events":

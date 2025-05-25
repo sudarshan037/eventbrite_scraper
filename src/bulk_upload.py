@@ -62,8 +62,6 @@ async def upload_urls(urls, source_url, sheet_name, container_name, max_concurre
 async def intermediate_upload(urls, source_url, SHEET_NAME, SCRAPER_NAME):
     await azure_cosmos.initialize_cosmosdb("Scraper", SCRAPER_NAME)
     await upload_urls(urls, source_url, SHEET_NAME, SCRAPER_NAME)
-    print(f"Starting upload of {len(urls)} URLs to container '{SCRAPER_NAME}'...")
-    await azure_cosmos.client.close()
 
 async def run():
     DATABASE_ID = await initialize_cosmosdb()

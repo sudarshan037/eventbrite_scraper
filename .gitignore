@@ -8,6 +8,7 @@ __pycache__/
 
 # folders
 data/*
+screenshots/*
 *.log
 
 # Distribution / packaging
