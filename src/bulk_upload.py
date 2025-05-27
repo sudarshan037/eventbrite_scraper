@@ -4,17 +4,10 @@ import hashlib
 import pandas as pd
 from tqdm import tqdm
 import asyncio
-from src.database.azure_cosmos import *
+from src.database.azure_cosmos_v2 import *
 from azure.cosmos.exceptions import CosmosResourceExistsError, CosmosHttpResponseError
 
-azure_cosmos = AzureCosmos()
-
-async def initialize_cosmosdb():
-    DATABASE_ID = "Scraper"
-    await azure_cosmos.initialize_cosmosdb(DATABASE_ID, "eventbrite_events")
-    return DATABASE_ID
-
-async def process_url(url, source_url, sheet_name, container_name, semaphore):
+async def process_url(azure_cosmos, url, source_url, database_name, container_name, sheet_name, semaphore):
     async with semaphore:
         secure_url = url.replace("http://", "https://")
         hash_key = sheet_name + secure_url
@@ -31,7 +24,7 @@ async def process_url(url, source_url, sheet_name, container_name, semaphore):
 
         while retries < max_retries:
             try:
-                await azure_cosmos.create_conversation(data=data)
+                await azure_cosmos.create_item(database_name=database_name, container_name=container_name, item=data)
                 return True
             except CosmosResourceExistsError:
                 print(f"[INFO] Record already exists in {container_name}, skipping insertion.")
@@ -47,10 +40,10 @@ async def process_url(url, source_url, sheet_name, container_name, semaphore):
                     return False
         return False
 
-async def upload_urls(urls, source_url, sheet_name, container_name, max_concurrent_tasks=10):
+async def upload_urls(azure_cosmos, urls, source_url, database_name, container_name, sheet_name, max_concurrent_tasks=10):
     semaphore = asyncio.Semaphore(max_concurrent_tasks)
     tasks = [
-        process_url(url, source_url, sheet_name, container_name, semaphore)
+        process_url(azure_cosmos, url, source_url, database_name, container_name, sheet_name, semaphore)
         for url in urls
     ]
     results = await asyncio.gather(*tasks)
@@ -59,20 +52,18 @@ async def upload_urls(urls, source_url, sheet_name, container_name, max_concurre
     return success_count
 
 
-async def intermediate_upload(urls, source_url, SHEET_NAME, SCRAPER_NAME):
-    await azure_cosmos.initialize_cosmosdb("Scraper", SCRAPER_NAME)
-    await upload_urls(urls, source_url, SHEET_NAME, SCRAPER_NAME)
+async def intermediate_upload(azure_cosmos, urls, source_url, database_name, SCRAPER_NAME, SHEET_NAME):
+    await upload_urls(azure_cosmos, urls, source_url, database_name, SCRAPER_NAME, SHEET_NAME)
 
 async def run():
-    DATABASE_ID = await initialize_cosmosdb()
-    containers = await azure_cosmos.list_containers(DATABASE_ID)
+    azure_cosmos = AzureCosmos()
+    database_name = "Scraper"
+
+    containers = await azure_cosmos.list_containers(database_name)
     print(f"Existing containers: {containers}")
 
-    SCRAPER_NAME = input("Enter container name: ")
+    SCRAPER_NAME = input("Enter container name: ") # container_name
     INPUT_FILE_PATH = input("Enter input file path: ")
-
-    await azure_cosmos.client.close()
-    await azure_cosmos.initialize_cosmosdb(DATABASE_ID, SCRAPER_NAME)
 
     if not os.path.exists(INPUT_FILE_PATH):
         print("[ERROR] Input file does not exist.")
@@ -90,7 +81,7 @@ async def run():
     urls = df["Links"].to_list()
 
     print(f"Starting upload of {len(urls)} URLs to container '{SCRAPER_NAME}'...")
-    await upload_urls(urls, source_url, SHEET_NAME, SCRAPER_NAME)
+    await upload_urls(azure_cosmos, urls, source_url, database_name, SCRAPER_NAME, SHEET_NAME)
 
     await azure_cosmos.client.close()
 
