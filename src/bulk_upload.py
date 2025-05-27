@@ -51,10 +51,6 @@ async def upload_urls(azure_cosmos, urls, source_url, database_name, container_n
     print(f"Out of {len(urls)} URLs, {success_count} were uploaded successfully.")
     return success_count
 
-
-async def intermediate_upload(azure_cosmos, urls, source_url, database_name, SCRAPER_NAME, SHEET_NAME):
-    await upload_urls(azure_cosmos, urls, source_url, database_name, SCRAPER_NAME, SHEET_NAME)
-
 async def run():
     azure_cosmos = AzureCosmos()
     database_name = "Scraper"

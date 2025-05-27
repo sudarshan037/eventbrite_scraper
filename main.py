@@ -1,13 +1,14 @@
 from src import utils
-from src.database.azure_cosmos import AzureCosmos
+from src.database.azure_cosmos_v2 import *
 from src.scrapers import eventbrite_events, dice_events
 
 import argparse
 import asyncio
 import multiprocessing
-
+from dotenv import load_dotenv
 
 if __name__ == "__main__":
+    load_dotenv()
     num_cpus = multiprocessing.cpu_count()
 
     parser = argparse.ArgumentParser(description="Scraper script")
@@ -24,7 +25,6 @@ if __name__ == "__main__":
     async def run():
         try:
             azure_cosmos = AzureCosmos()
-            await azure_cosmos.initialize_cosmosdb("Scraper", CONTAINER)
             await utils.process_urls_concurrently(
                 azure_cosmos=azure_cosmos,
                 scraper_name=args.scraper_name,
