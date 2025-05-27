@@ -4,6 +4,8 @@ import glob
 import time
 import platform
 import random
+import asyncio
+from twisted.internet import defer
 import hashlib
 import subprocess
 import scrapy
@@ -22,16 +24,41 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
+from azure.cosmos.exceptions import CosmosResourceExistsError, CosmosHttpResponseError
 
+from azure.cosmos import aio
 from azure.cosmos import CosmosClient, PartitionKey
 
 import logging
 logging.getLogger('azure').setLevel(logging.CRITICAL)
 
+async def process_item(item, container_client, semaphore):
+    async with semaphore:
+        retries = 0
+        max_retries = 3
+
+        while retries < max_retries:
+            try:
+                await container_client.create_item(item)
+                return True
+            except CosmosResourceExistsError:
+                print(f"[INFO][{item['id']}] Record already exists, skipping insertion.")
+                return True
+            except CosmosHttpResponseError as e:
+                if e.status_code == 429:
+                    retry_after = int(e.headers.get("x-ms-retry-after-ms", 1000)) / 1000
+                    print(f"[WARNING] Rate limit exceeded. Retrying in {retry_after} seconds...")
+                    await asyncio.sleep(retry_after)
+                    retries += 1
+                else:
+                    print(f"[ERROR] {e}")
+                    return False
+        return False
+
 class CosmosDBSpiderMixin(object):
     def __init__(self):
         self.offset_flag = True
-        self.max_offset = 32
+        self.max_offset = 256
         print(f"max_offset = {self.max_offset}")
 
         self.USER_AGENTS = [
@@ -180,6 +207,7 @@ class CosmosDBSpiderMixin(object):
         
         # Extract all hrefs from a tags with class 'event-card-link'
         links = selector_response.xpath("//a[contains(@class, 'event-card-link')]/@href").getall()
+        items = []
         for url in list(set(links)):
             hash_key = response.meta.get('sheet_name') + url
             data = {
@@ -189,11 +217,14 @@ class CosmosDBSpiderMixin(object):
                 "source_url": response.meta.get('url'),
                 "sheet_name": response.meta.get('sheet_name')
                 }
+            items.append(data)
             print(f"{bcolors.OKBLUE}{data}{bcolors.ESCAPE}")
-            try:
-                self.events_container.create_item(data)
-            except:
-                print(f"{bcolors.FAIL}Record already exists in cosmos: {url}{bcolors.ESCAPE}")
+
+        client = aio.CosmosClient(self.cosmos_db_uri, {'masterKey': self.cosmos_db_key})
+        semaphore = asyncio.Semaphore(10)
+        container_client = client.get_database_client(self.cosmos_db_database).get_container_client("eventbrite_events")
+        tasks = [process_item(item, container_client, semaphore) for item in items]
+        asyncio.gather(*tasks)
 
         hash_key = response.meta.get('sheet_name') + response.meta.get('url')
         item["id"] = hashlib.sha256(hash_key.encode()).hexdigest()
