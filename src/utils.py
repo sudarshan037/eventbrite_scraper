@@ -4,6 +4,7 @@ import hashlib
 import random
 from src.scrapers import eventbrite_links, letsdo_links, classpass_links
 from src.scrapers import eventbrite_events, dice_events, shotgun_events, letsdo_events, ra_events, classpass_events
+from src.scrapers import ngo_base
 from playwright.async_api import async_playwright
 from playwright_stealth import stealth_async
 import os
@@ -101,6 +102,8 @@ async def process_page(azure_cosmos, database_name, scraper_name, record):
             record = await classpass_links.process(record, page)
         elif scraper_name=="classpass_events":
             record = await classpass_events.process(record, page)
+        elif scraper_name=="ngo_base":
+            record = await ngo_base.process(record, page)
         else:
             pass
         
