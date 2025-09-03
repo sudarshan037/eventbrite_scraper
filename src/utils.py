@@ -2,9 +2,10 @@ import time
 import asyncio
 import hashlib
 import random
+import pandas as pd
 from src.scrapers import eventbrite_links, letsdo_links, classpass_links
 from src.scrapers import eventbrite_events, dice_events, shotgun_events, letsdo_events, ra_events, classpass_events
-from src.scrapers import ngo_base
+from src.scrapers import ngo_base_pages, ngo_base_ngos
 from playwright.async_api import async_playwright
 from playwright_stealth import stealth_async
 import os
@@ -64,6 +65,7 @@ async def process_page(azure_cosmos, database_name, scraper_name, record):
         for attempt in range(3):
             try:
                 await page.goto(url, wait_until=wait_until, timeout=30000)
+                await page.wait_for_load_state("networkidle")
                 break
             except Exception as e:
                 await asyncio.sleep(random.uniform(2, 5))
@@ -78,11 +80,8 @@ async def process_page(azure_cosmos, database_name, scraper_name, record):
                         body=record
                     )
                     return
-        # await page.screenshot(path=f"screenshots/screenshot_{record['id']}.png", full_page=True)
-                
-        record["processed"] = True
-        record["processing"] = False
-
+        await page.screenshot(path=f"screenshots/screenshot_{record['id']}.png", full_page=True)
+        # await asyncio.sleep(30)
         record = {key: value for key, value in record.items() if not key.startswith('_')}
         if scraper_name=="dice_events":
             record = await dice_events.process(record, page)
@@ -102,12 +101,17 @@ async def process_page(azure_cosmos, database_name, scraper_name, record):
             record = await classpass_links.process(record, page)
         elif scraper_name=="classpass_events":
             record = await classpass_events.process(record, page)
-        elif scraper_name=="ngo_base":
-            record = await ngo_base.process(record, page)
+        elif scraper_name=="ngo_base_pages":
+            record = await ngo_base_pages.process(record, page)
+        elif scraper_name=="ngo_base_ngos":
+            record = await ngo_base_ngos.process(record, page)
         else:
             pass
+
+        record["processed"] = True
+        record["processing"] = False
         
-        # await asyncio.sleep(30)
+        
         print(f"{bcolors.OKBLUE}OUTPUT: {record}{bcolors.ESCAPE}")
         if "_links" in scraper_name:
             await bulk_upload.upload_urls(
@@ -119,23 +123,51 @@ async def process_page(azure_cosmos, database_name, scraper_name, record):
                 sheet_name=record["sheet_name"]
                 )
             record.pop("events", None)
-        await azure_cosmos.replace_item(database_name, scraper_name, record["id"], record)
+        if "_pages" in scraper_name:
+            await bulk_upload.upload_urls(
+                azure_cosmos,
+                urls=list(set(record["pages"])),
+                source_url=record["url"],
+                database_name=database_name,
+                container_name=scraper_name,
+                sheet_name=record["sheet_name"],
+                processed=True
+                )
+            record.pop("pages", None)
+        if "_ngos" in scraper_name:
+            if os.path.exists("data/NGO_Database.xlsx"):
+                df = pd.read_excel("data/NGO_Database.xlsx")
+            else:
+                df = pd.DataFrame(columns=["url", "name", "website", "facebook"])
+            df2 = pd.DataFrame(record["ngos"])
+            df2['url'] = record["url"]
+            df = pd.concat([df, df2]).drop_duplicates().reset_index(drop=True)
+            df.to_excel("data/NGO_Database.xlsx", index=False)
+            await azure_cosmos.delete_item(database_name, scraper_name.replace("ngos", "pages"), record["id"], record["sheet_name"])
+        else:
+            pass
+            # await azure_cosmos.replace_item(database_name, scraper_name, record["id"], record)
         await context.close()
         await browser.close()
 
 
 async def fetch_urls_for_vm(azure_cosmos, database_name, container_name, vm_offset=0, batch_size=100, vm_name="local", max_workers=1):
     """Fetch a batch of unprocessed URLs and mark them as processing."""
-    query = f"SELECT * FROM c WHERE c.processed = false AND (NOT IS_DEFINED(c.processing) OR c.processing = '{vm_name}') OFFSET {vm_offset} LIMIT {batch_size}"
-    items = await azure_cosmos.query_items(database_name, container_name, query)
-
-    if not items:
-        query = f"SELECT * FROM c WHERE c.processed = false AND (NOT IS_DEFINED(c.processing) OR c.processing = '{vm_name}') OFFSET 0 LIMIT {batch_size}"
+    if container_name in ["ngo_base_ngos"]:
+        container_name = "ngo_base_pages"
+        query = f"SELECT * FROM c OFFSET {vm_offset} LIMIT {batch_size}"
+        items = await azure_cosmos.query_items(database_name, container_name, query)
+    else:
+        query = f"SELECT * FROM c WHERE c.processed = false AND (NOT IS_DEFINED(c.processing) OR c.processing = '{vm_name}') OFFSET {vm_offset} LIMIT {batch_size}"
         items = await azure_cosmos.query_items(database_name, container_name, query)
 
-    if not items:
-        query = f"SELECT * FROM c WHERE c.processed = false OFFSET 0 LIMIT {batch_size//2}"
-        items = await azure_cosmos.query_items(database_name, container_name, query)
+        if not items:
+            query = f"SELECT * FROM c WHERE c.processed = false AND (NOT IS_DEFINED(c.processing) OR c.processing = '{vm_name}') OFFSET 0 LIMIT {batch_size}"
+            items = await azure_cosmos.query_items(database_name, container_name, query)
+
+        if not items:
+            query = f"SELECT * FROM c WHERE c.processed = false OFFSET 0 LIMIT {batch_size//2}"
+            items = await azure_cosmos.query_items(database_name, container_name, query)
 
     semaphore = asyncio.Semaphore(max_workers)
 

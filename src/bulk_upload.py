@@ -7,14 +7,14 @@ import asyncio
 from src.database.azure_cosmos_v2 import *
 from azure.cosmos.exceptions import CosmosResourceExistsError, CosmosHttpResponseError
 
-async def process_url(azure_cosmos, url, source_url, database_name, container_name, sheet_name, semaphore):
+async def process_url(azure_cosmos, url, source_url, database_name, container_name, sheet_name, semaphore, processed=False):
     async with semaphore:
         secure_url = url.replace("http://", "https://")
         hash_key = sheet_name + secure_url
         data = {
             "id": hashlib.sha256(hash_key.encode()).hexdigest(),
             "url": secure_url,
-            "processed": False,
+            "processed": processed,
             "sheet_name": sheet_name,
             "source_url": source_url
         }
@@ -40,10 +40,10 @@ async def process_url(azure_cosmos, url, source_url, database_name, container_na
                     return False
         return False
 
-async def upload_urls(azure_cosmos, urls, source_url, database_name, container_name, sheet_name, max_concurrent_tasks=10):
+async def upload_urls(azure_cosmos, urls, source_url, database_name, container_name, sheet_name, processed=False, max_concurrent_tasks=10):
     semaphore = asyncio.Semaphore(max_concurrent_tasks)
     tasks = [
-        process_url(azure_cosmos, url, source_url, database_name, container_name, sheet_name, semaphore)
+        process_url(azure_cosmos, url, source_url, database_name, container_name, sheet_name, semaphore, processed=processed)
         for url in urls
     ]
     results = await asyncio.gather(*tasks)
