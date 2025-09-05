@@ -24,6 +24,17 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+x = [
+  {
+    "name": "cf_clearance",
+    "value": "5.szEBUEQrFOjR2sS1YVK6TbmPv52MiLxxgqgImm.GA-1757000040-1.2.1.1-WFJmvnG2tINY535W3XYyDJkHjrwgFHc6jWNv2jM8ZQzHhVjZo52NdD1OuhxMs5O.641mCC9HwSE2geqZs8O_ovw_c0Xw5h7RVFQohCy3eA8TVNkxVwtvoZfC0Srt_v23YHfEKjEa4P36sJu1H0rkqwR9FLdStfFxvwpQnQRSCRtNKqu_sdkEOZfLeeue0ycJWh4EgHzwQssikye0phrXCy5Hkg1GGWyv_rXAoU9z3WoHMRXWV8q4CHAPP7kPXeQw",
+    "domain": "ngobase.org",
+    "path": "/",
+    "httpOnly": True,
+    "secure": True
+  }
+]
+user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15"
 
 async def get_text(page, selector):
     element = await page.query_selector(selector)
@@ -45,7 +56,9 @@ async def process_page(azure_cosmos, database_name, scraper_name, record):
             ],
             headless=False,
         )
-        context = await browser.new_context()
+        context = await browser.new_context(user_agent=user_agent,locale="en-US",
+                viewport={"width": 1440, "height": 900})
+        await context.add_cookies(x)
         page = await context.new_page()
 
         async def block_unwanted(route):
