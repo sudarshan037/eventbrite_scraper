@@ -29,9 +29,12 @@ async def process(record, page):
         organiser_id = organiser_id.split("-")[-1]
 
 
-        # pass organiser_id to fetch event_details
-        event_details = await fetch_event_details(organiser_id)
-        follow_status = event_details.get("follow_status", {})
+        follow_status = {}
+        if organiser_id:
+            # pass organiser_id to fetch event_details
+            event_details = await fetch_event_details(organiser_id)
+            if event_details:
+                follow_status = event_details.get("follow_status", {})
 
         # TODO: pass organiser_id to fetch price details
         # https://www.eventbrite.com/api/v3/organizers/61124586823/events/?expand=ticket_availability&status=live&only_public=true
