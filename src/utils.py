@@ -32,6 +32,20 @@ class bcolors:
     UNDERLINE = "\033[4m"
 
 
+SCRAPER_MAPPING = {
+    "dice_events": dice_events,
+    "eventbrite_links": eventbrite_links,
+    "eventbrite_events": eventbrite_events,
+    "shotgun_events": shotgun_events,
+    "letsdo_links": letsdo_links,
+    "letsdo_events": letsdo_events,
+    "ra_events": ra_events,
+    "classpass_links": classpass_links,
+    "classpass_events": classpass_events,
+    "ngo_base": ngo_base,
+}
+
+
 async def get_text(page, selector):
     element = await page.query_selector(selector)
     return await element.inner_text() if element else ""
@@ -95,26 +109,13 @@ async def process_page(azure_cosmos, database_name, scraper_name, record):
             record["processing"] = False
             record = {k: v for k, v in record.items() if not k.startswith("_")}
 
-            if scraper_name == "dice_events":
-                record = await dice_events.process(record, page)
-            elif scraper_name == "eventbrite_links":
-                record = await eventbrite_links.process(record, page)
-            elif scraper_name == "eventbrite_events":
-                record = await eventbrite_events.process(record, page)
-            elif scraper_name == "shotgun_events":
-                record = await shotgun_events.process(record, page)
-            elif scraper_name == "letsdo_links":
-                record = await letsdo_links.process(record, page)
-            elif scraper_name == "letsdo_events":
-                record = await letsdo_events.process(record, page)
-            elif scraper_name == "ra_events":
-                record = await ra_events.process(record, page)
-            elif scraper_name == "classpass_links":
-                record = await classpass_links.process(record, page)
-            elif scraper_name == "classpass_events":
-                record = await classpass_events.process(record, page)
-            elif scraper_name == "ngo_base":
-                record = await ngo_base.process(record, page)
+            if scraper_process := SCRAPER_MAPPING.get(scraper_name):
+                record = await scraper_process.process(record, page)
+            else:
+                print(
+                    f"{bcolors.WARNING}No processor found for scraper: {scraper_name}{bcolors.ESCAPE}"
+                )
+
             # await asyncio.sleep(30)
             print(f"{bcolors.OKBLUE}OUTPUT: {record}{bcolors.ESCAPE}")
             # --- Upload events if needed ---
