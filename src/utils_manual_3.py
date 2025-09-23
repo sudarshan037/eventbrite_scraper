@@ -28,47 +28,33 @@ x = [
   }
 ]
 
+PAGE_NUM = 1
+
 async def process_idealist(page, filename):
+    global PAGE_NUM
+    PAGE_NUM += 1
     # Each org card in the results
-    org_cards = await page.query_selector_all('[data-qa-id="search-result"]')
+    org_cards = await page.query_selector_all('div.search-fav-box')
     data = []
 
     for card in org_cards:
         # --- Get link element ---
-        link_el = await card.query_selector("a.sc-9gxixl-5")  # the <a> tag itself
+        link_el = await card.query_selector("a[href]")  # the <a> tag itself
         link = await link_el.get_attribute("href") if link_el else ""
         if link and not link.startswith("http"):
-            link = f"https://www.idealist.org{link}"
+            link = f"https://greatnonprofits.org{link}"
 
         # --- Org name ---
         name = ""
         if link_el:
-            name_span = await link_el.query_selector('[data-qa-id="search-result-link"]')
-            if name_span:
-                name = (await name_span.inner_text()) or ""
-
-        # --- Tags ---
-        tags = []
-        tag_els = await card.query_selector_all(".sc-1eme1mj-2")
-        for t in tag_els:
-            tag_text = await t.inner_text()
-            if tag_text:
-                tags.append(tag_text.strip())
-
-        # --- Posted date ---
-        posted = await get_text(card, ".sc-1oq5f4p-0") or ""
-
-        # --- Logo ---
-        logo_el = await card.query_selector("img[data-qa-id='logo-uploaded-image']")
-        logo = await logo_el.get_attribute("src") if logo_el else ""
-
+            name_el = await card.query_selector("h2")
+            if name_el:
+                name = (await name_el.inner_text()) or ""
         data.append({
-            "Name": name.strip(),
-            "Link": (link or "").strip(),
-            "Tags": ", ".join(tags),
-            "Posted": posted.strip(),
-            "Logo": (logo or "").strip()
+            "name": name.strip(),
+            "link": link.strip(),
         })
+        print(data[-1])
 
     # Save / append to Excel
     df = pd.DataFrame(data)
@@ -79,10 +65,7 @@ async def process_idealist(page, filename):
         pass
 
     df.to_excel(filename, index=False)
-    print(f"{bcolors.OKGREEN}Saved {len(data)} records to {filename}{bcolors.ESCAPE}")
-
-
-
+    print(f"{bcolors.OKGREEN}Page: {PAGE_NUM} | Saved {len(data)} records to {filename}{bcolors.ESCAPE}")
 
 async def get_text(page, selector):
     element = await page.query_selector(selector)
@@ -90,7 +73,7 @@ async def get_text(page, selector):
 
 
 async def process_urls_concurrently(url):
-    filename = f"data/temp_{hashlib.sha256(url.encode()).hexdigest()}.xlsx"
+    filename = f"data/v2_{hashlib.sha256(url.encode()).hexdigest()}.xlsx"
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(
@@ -118,29 +101,30 @@ async def process_urls_concurrently(url):
         await page.goto(url, wait_until="networkidle", timeout=30000)
 
         while True:
-            await process_idealist(page, filename)  # your scraper function for each page
+            try:
+                await process_idealist(page, filename)  # your scraper function for each page
 
-            # Try to find the "Next page" link
-            next_link = await page.query_selector('a[data-qa-id="pagination-link-next"]')
-            if not next_link:
-                print("Reached last page, no next link.")
+                # Try to find the "Next page" link
+                # try 3 times with delays
+                next_link = None
+                for attempt in range(3):
+                    next_link = await page.query_selector('li.next-view.page-item a.page-link')
+                    if next_link:
+                        break
+                    await asyncio.sleep(2)  # wait before retrying
+
+                # Click next
+                await next_link.click()
+                await page.wait_for_load_state("domcontentloaded")
+                await page.wait_for_timeout(2000)  # wait for results to render
+                # TODO: last page exit not working
+            except Exception as e:
+                print(f"{bcolors.FAIL}No more pages or error occurred: {e}{bcolors.ESCAPE}")
                 break
-
-            # Extract next page number (optional, just for logging)
-            next_href = await next_link.get_attribute("href")
-            if next_href and "page=" in next_href:
-                page_number = next_href.split("page=")[-1]
-                print(f"{bcolors.OKBLUE}Navigating to page {page_number}{bcolors.ESCAPE}")
-            
-            # Click next
-            await next_link.click()
-            await page.wait_for_load_state("domcontentloaded")
-            await page.wait_for_timeout(2000)  # wait for results to render
-
 
 
 if __name__=="__main__":
-    url = "https://www.idealist.org/en/organizations?page=1"
+    url = "https://greatnonprofits.org/city/minneapolis/MN"
 
     async def run():
         await process_urls_concurrently(url)

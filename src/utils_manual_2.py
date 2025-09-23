@@ -71,8 +71,8 @@ async def process_urls_concurrently(path):
         await page.route("**/*.jpg?*", block_unwanted)  # Block images
 
         for index, row in df.iterrows():
-            if not pd.notna(row["error"]):
-                continue
+            # if not pd.notna(row["error"]):
+            #     continue
             try:
                 print(f"{bcolors.OKGREEN}Processing {index+1}/{len(df)}: {row['Link']}{bcolors.ESCAPE}")
                 await page.goto(row["Link"], wait_until="domcontentloaded", timeout=30000)
@@ -101,7 +101,7 @@ async def process_urls_concurrently(path):
 
 if __name__=="__main__":
     async def run():
-        await process_urls_concurrently("data/temp_e61880e699a2796a33ecdfde30f1ff7952fa984f33abbcc06af70c464c05935c_updated.xlsx")
+        await process_urls_concurrently("data/v2_e61880e699a2796a33ecdfde30f1ff7952fa984f33abbcc06af70c464c05935c.xlsx")
     
     try:
         asyncio.run(run())
