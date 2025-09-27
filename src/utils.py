@@ -23,6 +23,7 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+proxy={"server": "tcp://0.tcp.in.ngrok.io:19905"}
 
 async def get_text(page, selector):
     element = await page.query_selector(selector)
@@ -33,17 +34,18 @@ async def process_page(azure_cosmos, database_name, scraper_name, record):
     print(f"{bcolors.OKGREEN}URL: {url}{bcolors.ESCAPE}")
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            args=[
+        args = [
                 "--disable-extensions",
                 "--disable-background-networking",
                 "--disable-renderer-backgrounding",
                 "--disable-background-timer-throttling",
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
-            ],
-            headless=False,
-        )
+            ]
+        if scraper_name in ["eventbrite_links"]:
+            browser = await p.chromium.launch(args=args, headless=False, proxy=proxy)
+        else:
+            browser = await p.chromium.launch(args=args, headless=False)
         context = await browser.new_context()
         page = await context.new_page()
 
