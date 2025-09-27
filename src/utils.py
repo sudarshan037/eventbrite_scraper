@@ -31,6 +31,7 @@ class bcolors:
     BOLD = "\033[1m"
     UNDERLINE = "\033[4m"
 
+proxy={"server": "http://0.tcp.in.ngrok.io:19905"}
 
 SCRAPER_MAPPING = {
     "dice_events": dice_events,
@@ -56,17 +57,18 @@ async def process_page(azure_cosmos, database_name, scraper_name, record):
     print(f"{bcolors.OKGREEN}URL: {url}{bcolors.ESCAPE}")
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            args=[
+        args=[
                 "--disable-extensions",
                 "--disable-background-networking",
                 "--disable-renderer-backgrounding",
                 "--disable-background-timer-throttling",
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
-            ],
-            headless=False,
-        )
+            ]
+        if scraper_name in ["eventbrite_links"]:
+            browser = await p.chromium.launch(args=args, headless=False, proxy=proxy)
+        else:
+            browser = await p.chromium.launch(args=args, headless=False)
         context = await browser.new_context()
         page = await context.new_page()
 
@@ -78,7 +80,7 @@ async def process_page(azure_cosmos, database_name, scraper_name, record):
         # await page.route("**/*.{woff,woff2,ttf,otf}", block_unwanted)  # Block fonts
 
         # Apply stealth mode
-        if scraper_name in ["eventbrite_links", "letsdo_links", "classpass_links"]:
+        if scraper_name in ["letsdo_links", "classpass_links"]:
             wait_until = "networkidle"
         else:
             wait_until = "domcontentloaded"
