@@ -55,102 +55,105 @@ async def get_text(page, selector):
 async def process_page(azure_cosmos, database_name, scraper_name, record):
     url = record["url"]
     print(f"{bcolors.OKGREEN}URL: {url}{bcolors.ESCAPE}")
-
-    async with async_playwright() as p:
-        args=[
-                "--disable-extensions",
-                "--disable-background-networking",
-                "--disable-renderer-backgrounding",
-                "--disable-background-timer-throttling",
-                "--no-sandbox",
-                "--disable-dev-shm-usage",
-            ]
-        if scraper_name in ["eventbrite_links"]:
-            browser = await p.chromium.launch(args=args, headless=False, proxy=proxy)
-        else:
-            browser = await p.chromium.launch(args=args, headless=False)
-        context = await browser.new_context()
-        page = await context.new_page()
-
-        async def block_unwanted(route):
-            await route.abort()
-
-        await page.route("**/*.{png,jpeg,webp,gif,svg}", block_unwanted)  # Block images
-        await page.route("**/*.jpg?*", block_unwanted)  # Block images
-        # await page.route("**/*.{woff,woff2,ttf,otf}", block_unwanted)  # Block fonts
-
-        # Apply stealth mode
-        if scraper_name in ["letsdo_links", "classpass_links"]:
-            wait_until = "networkidle"
-        else:
-            wait_until = "domcontentloaded"
-            await stealth_async(page)
-
-        try:
-            # --- Retry navigation ---
-            for attempt in range(3):
-                try:
-                    await page.goto(url, wait_until=wait_until, timeout=30000)
-                    break  # success
-                except Exception as e:
-                    await asyncio.sleep(random.uniform(2, 5))
-                    if attempt == 2:  # last try failed
-                        print(f"Error navigating to {url}: {e}")
-                        record["processed"] = True
-                        record["error"] = f"Navigation error: {e}"
-                        await azure_cosmos.replace_item(
-                            database_name=database_name,
-                            container_name=scraper_name,
-                            item_id=record["id"],
-                            new_item=record,
-                        )
-                        return  # bail early, cleanup happens in finally
-            # await page.screenshot(path=f"screenshots/screenshot_{record['id']}.png", full_page=True)
-            # --- Scraper-specific processing ---
-            record["processed"] = True
-            record["processing"] = False
-            record = {k: v for k, v in record.items() if not k.startswith("_")}
-
-            if scraper_process := SCRAPER_MAPPING.get(scraper_name):
-                record = await scraper_process.process(record, page)
+    try:
+        async with async_playwright() as p:
+            args=[
+                    "--disable-extensions",
+                    "--disable-background-networking",
+                    "--disable-renderer-backgrounding",
+                    "--disable-background-timer-throttling",
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                ]
+            if scraper_name in ["eventbrite_links"]:
+                browser = await p.chromium.launch(args=args, headless=False, proxy=proxy)
             else:
-                print(
-                    f"{bcolors.WARNING}No processor found for scraper: {scraper_name}{bcolors.ESCAPE}"
+                browser = await p.chromium.launch(args=args, headless=False)
+            context = await browser.new_context()
+            page = await context.new_page()
+
+            async def block_unwanted(route):
+                await route.abort()
+
+            await page.route("**/*.{png,jpeg,webp,gif,svg}", block_unwanted)  # Block images
+            await page.route("**/*.jpg?*", block_unwanted)  # Block images
+            # await page.route("**/*.{woff,woff2,ttf,otf}", block_unwanted)  # Block fonts
+
+            # Apply stealth mode
+            if scraper_name in ["letsdo_links", "classpass_links"]:
+                wait_until = "networkidle"
+            else:
+                wait_until = "domcontentloaded"
+                await stealth_async(page)
+
+            try:
+                # --- Retry navigation ---
+                for attempt in range(3):
+                    try:
+                        await page.goto(url, wait_until=wait_until, timeout=30000)
+                        break  # success
+                    except Exception as e:
+                        await asyncio.sleep(random.uniform(2, 5))
+                        if attempt == 2:  # last try failed
+                            print(f"Error navigating to {url}: {e}")
+                            record["processed"] = True
+                            record["error"] = f"Navigation error: {e}"
+                            await azure_cosmos.replace_item(
+                                database_name=database_name,
+                                container_name=scraper_name,
+                                item_id=record["id"],
+                                new_item=record,
+                            )
+                            return  # bail early, cleanup happens in finally
+                # await page.screenshot(path=f"screenshots/screenshot_{record['id']}.png", full_page=True)
+                # --- Scraper-specific processing ---
+                record["processed"] = True
+                record["processing"] = False
+                record = {k: v for k, v in record.items() if not k.startswith("_")}
+
+                if scraper_process := SCRAPER_MAPPING.get(scraper_name):
+                    record = await scraper_process.process(record, page)
+                else:
+                    print(
+                        f"{bcolors.WARNING}No processor found for scraper: {scraper_name}{bcolors.ESCAPE}"
+                    )
+
+                # await asyncio.sleep(30)
+                print(f"{bcolors.OKBLUE}OUTPUT: {record}{bcolors.ESCAPE}")
+                # --- Upload events if needed ---
+                if "_links" in scraper_name:
+                    await bulk_upload.upload_urls(
+                        azure_cosmos,
+                        urls=list(set(record["events"])),
+                        source_url=record["url"],
+                        database_name=database_name,
+                        container_name=scraper_name.replace("links", "events"),
+                        sheet_name=record["sheet_name"],
+                    )
+                    record.pop("events", None)
+
+                # --- Save record ---
+                await azure_cosmos.replace_item(
+                    database_name, scraper_name, record["id"], record
                 )
 
-            # await asyncio.sleep(30)
-            print(f"{bcolors.OKBLUE}OUTPUT: {record}{bcolors.ESCAPE}")
-            # --- Upload events if needed ---
-            if "_links" in scraper_name:
-                await bulk_upload.upload_urls(
-                    azure_cosmos,
-                    urls=list(set(record["events"])),
-                    source_url=record["url"],
+            except Exception as e:
+                # catch anything not covered by navigation retries
+                print(f"Unexpected error in process_page({url}): {e}")
+                record["processed"] = True
+                record["error"] = f"Processing error: {e}"
+                await azure_cosmos.replace_item(
                     database_name=database_name,
-                    container_name=scraper_name.replace("links", "events"),
-                    sheet_name=record["sheet_name"],
+                    container_name=scraper_name,
+                    item_id=record["id"],
+                    new_item=record,
                 )
-                record.pop("events", None)
-
-            # --- Save record ---
-            await azure_cosmos.replace_item(
-                database_name, scraper_name, record["id"], record
-            )
-
-        except Exception as e:
-            # catch anything not covered by navigation retries
-            print(f"Unexpected error in process_page({url}): {e}")
-            record["processed"] = True
-            record["error"] = f"Processing error: {e}"
-            await azure_cosmos.replace_item(
-                database_name=database_name,
-                container_name=scraper_name,
-                item_id=record["id"],
-                new_item=record,
-            )
-        finally:
-            await context.close()
-            await browser.close()
+            finally:
+                await context.close()
+                await browser.close()
+    except Exception as e:
+        print(f"Fatal error in process_page({url}): {e}")
+        quit()
 
 
 async def fetch_urls_for_vm(
