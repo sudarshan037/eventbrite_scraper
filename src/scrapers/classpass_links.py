@@ -6,6 +6,28 @@ async def process(record, page):
     page: playwright page object used for data extraction
     """
     record['events'] = []
+    
+    # handle cookie banner
+    try:
+        cookie_ok_button = page.locator('#truste-consent-button')
+
+        if await cookie_ok_button.is_visible(timeout=5000):
+            await cookie_ok_button.scroll_into_view_if_needed()
+            await cookie_ok_button.click()
+            print("✅ Cookies accepted")
+        else:
+            for frame in page.frames:
+                try:
+                    frame_button = frame.locator('#truste-consent-button')
+                    if await frame_button.is_visible(timeout=3000):
+                        await frame_button.click()
+                        print("✅ Cookies accepted inside iframe")
+                        break
+                except Exception:
+                    continue
+    except Exception as e:
+        print(f"⚠️ Cookie banner not found or not clickable: {e}")
+
     try:
         while True:
             ul_selector = 'ul[data-component="SearchResultsList"]'
