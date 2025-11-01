@@ -65,10 +65,10 @@ async def process_page(azure_cosmos, database_name, scraper_name, record):
                     "--no-sandbox",
                     "--disable-dev-shm-usage",
                 ]
-            if scraper_name in ["eventbrite_links"]:
-                browser = await p.chromium.launch(args=args, headless=False, proxy=proxy)
-            else:
-                browser = await p.chromium.launch(args=args, headless=False)
+            # if scraper_name in ["eventbrite_links"]:
+            #     browser = await p.chromium.launch(args=args, headless=False, proxy=proxy)
+            # else:
+            browser = await p.chromium.launch(args=args, headless=False)
             context = await browser.new_context()
             page = await context.new_page()
 
