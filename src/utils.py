@@ -80,7 +80,7 @@ async def process_page(azure_cosmos, database_name, scraper_name, record):
             # await page.route("**/*.{woff,woff2,ttf,otf}", block_unwanted)  # Block fonts
 
             # Apply stealth mode
-            if scraper_name in ["letsdo_links", "classpass_links"]:
+            if scraper_name in ["letsdo_links", "classpass_links", "eventbrite_events"]:
                 wait_until = "networkidle"
             else:
                 wait_until = "domcontentloaded"

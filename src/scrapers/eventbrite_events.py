@@ -40,9 +40,17 @@ async def process(record, page):
         # https://www.eventbrite.com/api/v3/organizers/61124586823/events/?expand=ticket_availability&status=live&only_public=true
         
         record['event_name'] = await utils.get_text(page, "//h1[contains(@class, 'event-title')]")
-        record['date'] = await utils.get_text(page, "//time[contains(@class, 'start-date')]")
+        
+        await page.wait_for_selector("time.start-date-and-location__date", timeout=10000)
+        element = await page.query_selector("time.start-date-and-location__date")
+        record['date'] = await element.get_attribute("datetime") if element else ""
+
         record['price'] = await utils.get_text(page, "//div[@class='conversion-bar__panel-info']")
-        record['location'] = await utils.get_text(page, "//div[contains(@class, 'location-info__address')]")
+        
+        elements = await page.query_selector_all("//div[contains(@class, 'Location-module__addressWrapper')]/p")
+        texts = [await el.inner_text() for el in elements]
+        record['location'] = ", ".join(texts)
+
         record['organiser_name'] = await utils.get_text(page, "//a[contains(@class, 'OrganizerLink-module__OrganizerLink')]")
         record['followers'] = follow_status.get("num_followers", 0)
     except Exception as e:
