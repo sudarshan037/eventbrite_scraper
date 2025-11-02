@@ -40,10 +40,13 @@ async def process(record, page):
         # https://www.eventbrite.com/api/v3/organizers/61124586823/events/?expand=ticket_availability&status=live&only_public=true
         
         record['event_name'] = await utils.get_text(page, "//h1[contains(@class, 'event-title')]")
-        
-        await page.wait_for_selector("time.start-date-and-location__date", timeout=10000)
-        element = await page.query_selector("time.start-date-and-location__date")
-        record['date'] = await element.get_attribute("datetime") if element else ""
+
+        try:
+            await page.wait_for_selector("time.start-date-and-location__date", timeout=10000)
+            element = await page.query_selector("time.start-date-and-location__date")
+            record['date'] = await element.get_attribute("datetime") if element else ""
+        except:
+            pass
 
         record['price'] = await utils.get_text(page, "//div[@class='conversion-bar__panel-info']")
         
