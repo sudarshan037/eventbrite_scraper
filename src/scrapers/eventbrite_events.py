@@ -79,49 +79,62 @@ async def fetch_event_details(organiser_id):
                 print(f"Failed to fetch organizer data. Status code: {response.status}")
                 return None
 
+import json
+
 async def process(record, page):
     """
-    record: whatever is present in cosmos db for that record [mandatory "url"]
-    page: playwright page object used for data extraction
+    Extracts event data directly from the __NEXT_DATA__ JSON blob.
     """
     try:
-        # get organiser_id
-        organiser_id_element = await page.query_selector("//a[contains(@class, 'OrganizerLink-module__OrganizerLink')]")
-        organiser_id = await organiser_id_element.get_attribute("href") if organiser_id_element else ""
-        organiser_id = organiser_id.split("-")[-1]
+        # 1. Locate the script tag and get its content
+        script_element = await page.query_selector("script#__NEXT_DATA__")
+        if not script_element:
+            print(f"Could not find JSON data for {record['url']}")
+            return record
 
+        raw_json = await script_element.inner_text()
+        data = json.loads(raw_json)
 
-        follow_status = {}
-        if organiser_id:
-            # pass organiser_id to fetch event_details
-            event_details = await fetch_event_details(organiser_id)
+        # 2. Navigate the JSON structure (Step-by-step to avoid KeyErrors)
+        page_props = data.get("props", {}).get("pageProps", {})
+        basic_info = page_props.get("context", {}).get("basicInfo", {})
+        venue = basic_info.get("venue", {})
+        seo_info = page_props.get("context", {}).get("seo", {})
+        offers_schema = seo_info.get("offersSchema", [])
+
+        # 3. Map values to your record
+        record['event_name'] = basic_info.get("name", "")
+        record['organiser_id'] = basic_info.get("organizer", {}).get("id", "")
+        record['organiser_name'] = basic_info.get("organizer", {}).get("name", "")
+        
+        # Use UTC or Local depending on your preference
+        record['date'] = basic_info.get("startDate", {}).get("utc", "")
+
+        # 4. Extract Price from SEO schema
+        if offers_schema and len(offers_schema) > 0:
+            first_offer = offers_schema[0]
+            currency = first_offer.get("priceCurrency", "")
+            price = first_offer.get("lowPrice", "")
+            
+            # Save it to your record
+            if price:
+                record['price'] = f"{currency} {price}".strip()
+            else:
+                record['price'] = "Price Not Found"
+        
+        # 5. Location details
+        address_list = venue.get("address", {}).get("localizedMultiLineAddressDisplay", [])
+        record['location'] = ", ".join(address_list)
+        record['city'] = venue.get("address", {}).get("city", "")
+        record['state'] = venue.get("address", {}).get("region", "")
+
+        # 6. Follower Logic (unchanged)
+        if record['organiser_id']:
+            event_details = await fetch_event_details(record['organiser_id'])
             if event_details:
-                follow_status = event_details.get("follow_status", {})
+                record['followers'] = event_details.get("follow_status", {}).get("num_followers", 0)
 
-        # TODO: pass organiser_id to fetch price details
-        # https://www.eventbrite.com/api/v3/organizers/61124586823/events/?expand=ticket_availability&status=live&only_public=true
-        
-        record['event_name'] = await utils.get_text(page, "//h1[contains(@class, 'event-title')]")
-
-        try:
-            await page.wait_for_selector("time.start-date-and-location__date", timeout=10000)
-            element = await page.query_selector("time.start-date-and-location__date")
-            record['date'] = await element.get_attribute("datetime") if element else ""
-        except:
-            pass
-
-        record['price'] = await utils.get_text(page, "//div[@class='conversion-bar__panel-info']")
-        
-        elements = await page.query_selector_all("//div[contains(@class, 'Location-module__addressWrapper')]/p")
-        texts = [await el.inner_text() for el in elements]
-        record['location'] = ", ".join(texts)
-
-        # City and State
-        record['city'] = texts[-1].split(',')[0].strip() if texts else ""
-        record["state"] = abbreviation_to_name.get(texts[-1].split(',')[1].strip()[:2] if texts and len(texts[-1].split(',')) > 1 else "", "")
-
-        record['organiser_name'] = await utils.get_text(page, "//a[contains(@class, 'OrganizerLink-module__OrganizerLink')]")
-        record['followers'] = follow_status.get("num_followers", 0)
     except Exception as e:
-        print(f"Error Fetching details for url -> {record['url']}: {e}")
+        print(f"Error parsing JSON for {record.get('url')}: {e}")
+        
     return record
